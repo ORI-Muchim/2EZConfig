@@ -55,4 +55,4 @@ If i find anything else that improves compatibilty ill update this list
 
 ## Contact
 
-Please feel free to contact me on sows (IYKYK)
+Please feel free to contact me on Discord (ori_muchim)
