@@ -97,7 +97,7 @@ private:
             return false;
         }
 
-        // DTR 신호를 토글하여 아두이노 리셋
+        // Resetting the Arduino by toggling the DTR signal
         EscapeCommFunction(testHandle, SETDTR);
         Sleep(250);
         EscapeCommFunction(testHandle, CLRDTR);
@@ -148,7 +148,7 @@ public:
         char cmdBuffer[3];  // "0\n" or "1\n"
         sprintf_s(cmdBuffer, "%c\n", command);
 
-        // 비동기 작업을 위한 OVERLAPPED 구조체
+        // OVERLAPPED structures for asynchronous operations
         OVERLAPPED osWriter = { 0 };
         osWriter.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
         if (!osWriter.hEvent) {
@@ -159,8 +159,8 @@ public:
         BOOL result = WriteFile(hSerial, cmdBuffer, strlen(cmdBuffer), &bytesWritten, &osWriter);
 
         if (!result && GetLastError() == ERROR_IO_PENDING) {
-            // 비동기 작업 완료 대기
-            DWORD waitResult = WaitForSingleObject(osWriter.hEvent, 500);  // 0.5초 타임아웃
+            // Waiting for asynchronous tasks to complete
+            DWORD waitResult = WaitForSingleObject(osWriter.hEvent, 500);  // Timeout 0.5sec
             if (waitResult == WAIT_OBJECT_0) {
                 GetOverlappedResult(hSerial, &osWriter, &bytesWritten, FALSE);
                 result = (bytesWritten == strlen(cmdBuffer));
@@ -174,7 +174,7 @@ public:
 
         if (result) {
             lastCommand = command;
-            FlushFileBuffers(hSerial);  // 버퍼 즉시 전송
+            FlushFileBuffers(hSerial);  // Buffer immediate transfer
             return true;
         }
         return false;
@@ -186,22 +186,22 @@ public:
         fopen_s(&fp, "debug.log", "a");
         fprintf(fp, "Starting Arduino detection...\n");
 
-        // COM2-COM10 검사
+        // Check COM2-COM10
         for (int i = 2; i <= 10; i++) {
             sprintf_s(portName, "COM%d", i);
             fprintf(fp, "Trying %s...\n", portName);
 
-            // 먼저 동기 모드로 열어서 테스트
+            // First, open in synchronous mode for testing
             HANDLE testHandle = CreateFileA(portName,
                 GENERIC_READ | GENERIC_WRITE,
                 0,
                 NULL,
                 OPEN_EXISTING,
-                FILE_ATTRIBUTE_NORMAL,  // 동기 모드
+                FILE_ATTRIBUTE_NORMAL,  // Synchronous mode
                 NULL);
 
             if (testHandle != INVALID_HANDLE_VALUE) {
-                // 기본 설정
+                // Basic configuration
                 DCB dcbParams = { 0 };
                 dcbParams.DCBlength = sizeof(dcbParams);
                 GetCommState(testHandle, &dcbParams);
@@ -214,7 +214,7 @@ public:
                     fprintf(fp, "Found on %s\n", portName);
                     CloseHandle(testHandle);
 
-                    // 실제 사용을 위해 비동기 모드로 다시 열기
+                    // Reopen in asynchronous mode for actual use
                     hSerial = CreateFileA(portName,
                         GENERIC_READ | GENERIC_WRITE,
                         0,
@@ -228,7 +228,7 @@ public:
                         PurgeComm(hSerial, PURGE_TXCLEAR | PURGE_RXCLEAR);
                         Sleep(1000);
                         isInitialized = true;
-                        SendCommand('0');  // 초기 상태 설정
+                        SendCommand('0');  // Set initial state
                         fclose(fp);
                         return true;
                     }
