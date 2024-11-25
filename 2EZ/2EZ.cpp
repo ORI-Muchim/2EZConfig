@@ -12,6 +12,12 @@
 #include <mutex>
 using namespace std;
 
+// Serial communication related constants
+const DWORD BAUD_RATE = CBR_9600;
+const DWORD SERIAL_TIMEOUT = 50;
+const size_t MAX_COMMAND_LENGTH = 3;  // "0\n" or "1\n"
+const DWORD RECONNECT_DELAY = 1000;   // Reconnection wait time (ms)
+
 ioBinding buttonBindings[NUM_OF_IO];
 ioAnalogs analogBindings[NUM_OF_ANALOG];
 Joysticks joysticks[NUM_OF_JOYSTICKS];
@@ -22,125 +28,267 @@ int GameVer;
 djGame currGame;
 LPCSTR config = ".\\2EZ.ini";
 
-// 전역 변수 선언부에 추가
-HANDLE hSerial = INVALID_HANDLE_VALUE;
+// Class for managing serial communication status
+class ArduinoController {
+private:
+    HANDLE hSerial;
+    DCB dcbSerialParams;
+    COMMTIMEOUTS timeouts;
+    bool isInitialized;
+    char lastCommand;
 
-// 사운드 이벤트를 위한 전역 변수들
-bool isRunning = true;
-bool shouldBeep = false;
-bool beepHigh = false;
-std::mutex beepMutex;
+    bool ConfigureSerialPort() {
+        dcbSerialParams = { 0 };
+        dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
+
+        if (!GetCommState(hSerial, &dcbSerialParams)) {
+            return false;
+        }
+
+        dcbSerialParams.BaudRate = 9600;
+        dcbSerialParams.ByteSize = 8;
+        dcbSerialParams.StopBits = ONESTOPBIT;
+        dcbSerialParams.Parity = NOPARITY;
+        dcbSerialParams.fDtrControl = DTR_CONTROL_ENABLE;
+        dcbSerialParams.fRtsControl = RTS_CONTROL_ENABLE;
+
+        if (!SetCommState(hSerial, &dcbSerialParams)) {
+            return false;
+        }
+
+        timeouts = { 0 };
+        timeouts.ReadIntervalTimeout = 50;
+        timeouts.ReadTotalTimeoutConstant = 50;
+        timeouts.ReadTotalTimeoutMultiplier = 10;
+        timeouts.WriteTotalTimeoutConstant = 50;
+        timeouts.WriteTotalTimeoutMultiplier = 10;
+
+        return SetCommTimeouts(hSerial, &timeouts);
+    }
+
+    bool IsArduinoPort(const char* portName) {
+        HANDLE testHandle = CreateFileA(portName,
+            GENERIC_READ | GENERIC_WRITE,
+            0,
+            NULL,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL,
+            NULL);
+
+        if (testHandle == INVALID_HANDLE_VALUE) {
+            return false;
+        }
+
+        DCB dcbTestParams = { 0 };
+        dcbTestParams.DCBlength = sizeof(dcbTestParams);
+
+        if (!GetCommState(testHandle, &dcbTestParams)) {
+            CloseHandle(testHandle);
+            return false;
+        }
+
+        dcbTestParams.BaudRate = 9600;
+        dcbTestParams.ByteSize = 8;
+        dcbTestParams.StopBits = ONESTOPBIT;
+        dcbTestParams.Parity = NOPARITY;
+
+        if (!SetCommState(testHandle, &dcbTestParams)) {
+            CloseHandle(testHandle);
+            return false;
+        }
+
+        // DTR 신호를 토글하여 아두이노 리셋
+        EscapeCommFunction(testHandle, SETDTR);
+        Sleep(250);
+        EscapeCommFunction(testHandle, CLRDTR);
+        Sleep(50);
+
+        PurgeComm(testHandle, PURGE_RXCLEAR | PURGE_TXCLEAR);
+
+        const char testMessage = '1';
+        DWORD bytesWritten = 0;
+        WriteFile(testHandle, &testMessage, 1, &bytesWritten, NULL);
+
+        Sleep(100);
+
+        char buffer[32];
+        DWORD bytesRead = 0;
+        BOOL readResult = ReadFile(testHandle, buffer, sizeof(buffer), &bytesRead, NULL);
+
+        CloseHandle(testHandle);
+
+        FILE* fp;
+        fopen_s(&fp, "arduino_detect.log", "a");
+        fprintf(fp, "Testing %s - Read result: %d, Bytes read: %d\n",
+            portName, readResult, bytesRead);
+        fclose(fp);
+
+        return (readResult && bytesRead > 0);
+    }
+
+public:
+    ArduinoController() : hSerial(INVALID_HANDLE_VALUE), isInitialized(false), lastCommand(0) {}
+
+    ~ArduinoController() {
+        if (hSerial != INVALID_HANDLE_VALUE) {
+            SendCommand('1');  // Turn off relay when exiting
+            CloseHandle(hSerial);
+        }
+    }
+
+    bool SendCommand(char command) {
+        if (!isInitialized || hSerial == INVALID_HANDLE_VALUE) {
+            return false;
+        }
+
+        if (command == lastCommand) {
+            return true;
+        }
+
+        char cmdBuffer[3];  // "0\n" or "1\n"
+        sprintf_s(cmdBuffer, "%c\n", command);
+
+        // 비동기 작업을 위한 OVERLAPPED 구조체
+        OVERLAPPED osWriter = { 0 };
+        osWriter.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        if (!osWriter.hEvent) {
+            return false;
+        }
+
+        DWORD bytesWritten = 0;
+        BOOL result = WriteFile(hSerial, cmdBuffer, strlen(cmdBuffer), &bytesWritten, &osWriter);
+
+        if (!result && GetLastError() == ERROR_IO_PENDING) {
+            // 비동기 작업 완료 대기
+            DWORD waitResult = WaitForSingleObject(osWriter.hEvent, 500);  // 0.5초 타임아웃
+            if (waitResult == WAIT_OBJECT_0) {
+                GetOverlappedResult(hSerial, &osWriter, &bytesWritten, FALSE);
+                result = (bytesWritten == strlen(cmdBuffer));
+            }
+            else {
+                result = FALSE;
+            }
+        }
+
+        CloseHandle(osWriter.hEvent);
+
+        if (result) {
+            lastCommand = command;
+            FlushFileBuffers(hSerial);  // 버퍼 즉시 전송
+            return true;
+        }
+        return false;
+    }
+
+    bool Initialize() {
+        char portName[12];
+        FILE* fp;
+        fopen_s(&fp, "debug.log", "a");
+        fprintf(fp, "Starting Arduino detection...\n");
+
+        // COM2-COM10 검사
+        for (int i = 2; i <= 10; i++) {
+            sprintf_s(portName, "COM%d", i);
+            fprintf(fp, "Trying %s...\n", portName);
+
+            // 먼저 동기 모드로 열어서 테스트
+            HANDLE testHandle = CreateFileA(portName,
+                GENERIC_READ | GENERIC_WRITE,
+                0,
+                NULL,
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL,  // 동기 모드
+                NULL);
+
+            if (testHandle != INVALID_HANDLE_VALUE) {
+                // 기본 설정
+                DCB dcbParams = { 0 };
+                dcbParams.DCBlength = sizeof(dcbParams);
+                GetCommState(testHandle, &dcbParams);
+                dcbParams.BaudRate = 9600;
+                dcbParams.ByteSize = 8;
+                dcbParams.StopBits = ONESTOPBIT;
+                dcbParams.Parity = NOPARITY;
+
+                if (SetCommState(testHandle, &dcbParams)) {
+                    fprintf(fp, "Found on %s\n", portName);
+                    CloseHandle(testHandle);
+
+                    // 실제 사용을 위해 비동기 모드로 다시 열기
+                    hSerial = CreateFileA(portName,
+                        GENERIC_READ | GENERIC_WRITE,
+                        0,
+                        NULL,
+                        OPEN_EXISTING,
+                        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+                        NULL);
+
+                    if (hSerial != INVALID_HANDLE_VALUE && ConfigureSerialPort()) {
+                        fprintf(fp, "Successfully connected to %s\n", portName);
+                        PurgeComm(hSerial, PURGE_TXCLEAR | PURGE_RXCLEAR);
+                        Sleep(1000);
+                        isInitialized = true;
+                        SendCommand('0');  // 초기 상태 설정
+                        fclose(fp);
+                        return true;
+                    }
+                }
+                CloseHandle(testHandle);
+            }
+            fprintf(fp, "Not found on %s\n", portName);
+        }
+
+        fprintf(fp, "Arduino not found\n");
+        fclose(fp);
+        return false;
+    }
+
+    bool IsInitialized() const {
+        return isInitialized;
+    }
+};
+
+// Global Arduino controller instance
+ArduinoController arduinoController;
 
 UINT8 getButtonInput(int ionRangeStart) {
     UINT8 output = 255;
     int count = 0;
-    for (int i = ionRangeStart; i < ionRangeStart+8; i++) {
+    for (int i = ionRangeStart; i < ionRangeStart + 8; i++) {
         if (buttonBindings[i].bound) {
             if (buttonBindings[i].method) {
                 if (input::isJoyButtonPressed(buttonBindings[i].joyID, buttonBindings[i].binding)) {
                     output = output & byteArray[count];
                 }
-            } else {
-                if(input::isKbButtonPressed(buttonBindings[i].binding)) {
+            }
+            else {
+                if (input::isKbButtonPressed(buttonBindings[i].binding)) {
                     output = output & byteArray[count];
                 }
-            }            
+            }
         }
-        count ++;
+        count++;
     }
     return output;
 }
 
 UINT8 getAnalogInput(int player) {
-    if (analogBindings[player].bound){
+    if (analogBindings[player].bound) {
         UINT8 ttRawVal = input::JoyAxisPos(analogBindings[player].joyID, analogBindings[player].axis);
         return (analogBindings[player].reverse ? ~ttRawVal : ttRawVal) + vTT[player].pos;
-    }else{ 
+    }
+    else {
         return vTT[player].pos;
-    }   
-}
-
-bool InitArduino();  // 프로토타입 선언
-
-// 시리얼 통신으로 데이터 전송
-void SendToArduino(const char* data) {
-    if (hSerial != INVALID_HANDLE_VALUE) {
-        DWORD bytesWritten;
-        if (!WriteFile(hSerial, data, strlen(data), &bytesWritten, NULL) ||
-            bytesWritten != strlen(data)) {
-            printf("아두이노 데이터 전송 실패\n");
-
-            // 연결이 끊어진 경우 재연결 시도
-            CloseHandle(hSerial);
-            hSerial = INVALID_HANDLE_VALUE;
-            if (InitArduino()) {
-                printf("아두이노 재연결 성공\n");
-                // 재전송 시도
-                WriteFile(hSerial, data, strlen(data), &bytesWritten, NULL);
-            }
-        }
     }
 }
 
-// 시리얼 통신 초기화 함수
-bool InitArduino() {
-    char portName[32];
-    for (int i = 1; i <= 10; i++) {
-        sprintf_s(portName, "\\\\.\\COM%d", i);
-
-        hSerial = CreateFileA(portName,
-            GENERIC_READ | GENERIC_WRITE,
-            0,
-            0,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            0);
-
-        if (hSerial != INVALID_HANDLE_VALUE) {
-            DCB dcbSerialParams = { 0 };
-            dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
-
-            if (GetCommState(hSerial, &dcbSerialParams)) {
-                dcbSerialParams.BaudRate = CBR_9600;  // 9600으로 변경
-                dcbSerialParams.ByteSize = 8;
-                dcbSerialParams.StopBits = ONESTOPBIT;
-                dcbSerialParams.Parity = NOPARITY;
-
-                if (SetCommState(hSerial, &dcbSerialParams)) {
-                    COMMTIMEOUTS timeouts = { 0 };
-                    timeouts.ReadIntervalTimeout = MAXDWORD;
-                    timeouts.ReadTotalTimeoutConstant = 0;
-                    timeouts.ReadTotalTimeoutMultiplier = 0;
-                    timeouts.WriteTotalTimeoutConstant = 50;
-                    timeouts.WriteTotalTimeoutMultiplier = 10;
-
-                    if (SetCommTimeouts(hSerial, &timeouts)) {
-                        Sleep(2000);
-                        SendToArduino("0\n");
-                        return true;
-                    }
-                }
-            }
-            CloseHandle(hSerial);
-            hSerial = INVALID_HANDLE_VALUE;
-        }
-    }
-    printf("아두이노를 찾을 수 없습니다.\n");
-    return false;
-}
-
-// 네온 상태 처리 함수
+// Neon status handling function
 void HandleNeonOutput(UINT8 lightPattern) {
     static bool lastNeonState = false;
-    bool currentNeonState = !(lightPattern & 0x10); // 0이면 ON, 1이면 OFF
+    bool currentNeonState = !(lightPattern & 0x10); // 0 is ON, 1 is OFF
 
     if (currentNeonState != lastNeonState) {
-        if (currentNeonState) {
-            SendToArduino("0\n");  // LOW
-        }
-        else {
-            SendToArduino("1\n");  // HIGH
-        }
+        arduinoController.SendCommand(currentNeonState ? '0' : '1');
         lastNeonState = currentNeonState;
     }
 }
@@ -149,18 +297,18 @@ void HandleNeonOutput(UINT8 lightPattern) {
 //often crashes the game when using the io shim.
 LONG WINAPI IOportHandler(PEXCEPTION_POINTERS pExceptionInfo) {
     //ty batteryshark for the great writeup :)
-    
+
     if (pExceptionInfo->ExceptionRecord->ExceptionCode != EXCEPTION_PRIV_INSTRUCTION) {
         if (pExceptionInfo->ExceptionRecord->ExceptionCode != DBG_PRINTEXCEPTION_C) {
         }
         return EXCEPTION_EXECUTE_HANDLER;
     }
- 
+
     unsigned int eip_val = *(unsigned int*)pExceptionInfo->ContextRecord->Eip;
     //
     // EZ2DJ IO INPUT.
     // 
-    
+
     // Each port has 8 buttons assigned to it. 
     // each port reports a 8bit value, 0 = pressed, 1 = not pressed
 
@@ -189,7 +337,7 @@ LONG WINAPI IOportHandler(PEXCEPTION_POINTERS pExceptionInfo) {
             pExceptionInfo->ContextRecord->Eax = 0;
             break;
         }
-        
+
         pExceptionInfo->ContextRecord->Eip++;
         return EXCEPTION_CONTINUE_EXECUTION;
     }
@@ -197,12 +345,12 @@ LONG WINAPI IOportHandler(PEXCEPTION_POINTERS pExceptionInfo) {
     //IO OUTPUT
     //For Lighting
     //HANDLE IN  DX, AL
-    // LED 출력 처리
+    // LED output processing
     if ((eip_val & 0xFF) == 0xEE) {
         DWORD port = pExceptionInfo->ContextRecord->Edx & 0xFFFF;
         UINT8 lightPattern = (UINT8)(pExceptionInfo->ContextRecord->Eax & 0xFF);
 
-        // 0x100 포트의 네온 비트만 처리
+        // Process only the neon bit of port 0x100
         if (port == 0x100) {
             HandleNeonOutput(lightPattern);
         }
@@ -214,7 +362,7 @@ LONG WINAPI IOportHandler(PEXCEPTION_POINTERS pExceptionInfo) {
     //
     // EZ2Dancer IO Ports
     // 
-    
+
     // Game input
     // -- Handle IN AX,DX --
 
@@ -277,10 +425,7 @@ LONG WINAPI IOportHandler(PEXCEPTION_POINTERS pExceptionInfo) {
 }
 
 DWORD WINAPI virtualTTThread(void* data) {
-
-
     while (true) {
-        
         if (GetAsyncKeyState(vTT[0].plus) & 0x8000) {
             vTT[0].pos += 1;
         }
@@ -302,7 +447,7 @@ DWORD WINAPI virtualTTThread(void* data) {
 
 DWORD WINAPI alternateInputThread(void* data) {
 
-    if (strcmp(currGame.name, "Final:EX") == 0){
+    if (strcmp(currGame.name, "Final:EX") == 0) {
         bool autoPlayButtonState = false;
         uintptr_t fnexApOffset = 0x175F2E0;
 
@@ -374,40 +519,35 @@ DWORD WINAPI alternateInputThread(void* data) {
 }
 
 DWORD PatchThread() {
-
-    //Get Game config file
+    // Get Game config file
     HANDLE ez2Proc = GetCurrentProcess();
     baseAddress = (uintptr_t)GetModuleHandleA(NULL);
     GameVer = GetPrivateProfileIntA("Settings", "GameVer", 0, config);
     currGame = djGames[GameVer];
-    
-    //Get Button Bindings config file
+
+    // Get Button Bindings config file
     char ControliniPath[MAX_PATH];
     SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, ControliniPath);
     PathAppendA(ControliniPath, (char*)"2EZ.ini");
 
-    
-    //Short sleep to fix crash when using legitimate data with dongle, can be overrden in ini if causing issues.
+    // Short sleep to fix crash when using legitimate data with dongle, can be overriden in ini if causing issues.
     Sleep(GetPrivateProfileIntA("Settings", "ShimDelay", 10, config));
 
-
-    //re-enable keyboard if playing FNEX - do this before any delays
+    // re-enable keyboard if playing FNEX - do this before any delays
     if (strcmp(currGame.name, "Final:EX") == 0) {
         zeroMemory(baseAddress, 0x15D51);
     }
 
-    //Hook IO 
+    // Hook IO 
     if (GetPrivateProfileIntA("Settings", "EnableIOHook", 0, config)) {
         SetUnhandledExceptionFilter(IOportHandler);
     }
 
-
-    //Setup Buttons
+    // Setup Buttons
     for (int b = 0; b < NUM_OF_IO; b++) {
         char buff[20];
         GetPrivateProfileStringA(ioButtons[b], "method", NULL, buff, 20, ControliniPath);
         if (buff != NULL) {
-
             if (strcmp(buff, "Key") == 0) {
                 buttonBindings[b].bound = true;
                 buttonBindings[b].method = 0;
@@ -420,10 +560,9 @@ DWORD PatchThread() {
             buttonBindings[b].joyID = GetPrivateProfileIntA(ioButtons[b], "JoyID", 16, ControliniPath);
             buttonBindings[b].binding = GetPrivateProfileIntA(ioButtons[b], "Binding", NULL, ControliniPath);
         }
-       
     }
 
-    //Setup Analogs
+    // Setup Analogs
     for (int a = 0; a < NUM_OF_ANALOG; a++) {
         char buff[20];
         GetPrivateProfileStringA(analogs[a], "Axis", NULL, buff, 20, ControliniPath);
@@ -440,19 +579,18 @@ DWORD PatchThread() {
             analogBindings[a].reverse = GetPrivateProfileIntA(analogs[a], "Reverse", 0, ControliniPath);
         }
     }
-    
-    //auto play key
-    apKey =  GetPrivateProfileIntA("Autoplay", "Binding", VK_F11, ControliniPath);
 
-    ///PATCHING SECTION
+    // auto play key
+    apKey = GetPrivateProfileIntA("Autoplay", "Binding", VK_F11, ControliniPath);
 
+    // PATCHING SECTION
 
-    //Some of the games (ie final) take a while to initialise and will crash or clear out the bindings unless delayed
-    //Doesnt cause any issues so i just set this globally on all games, can be overidden in .ini if needed.
-    //since we're already hooking IO theres no problem doing this.
+    // Some of the games (ie final) take a while to initialise and will crash or clear out the bindings unless delayed
+    // Doesnt cause any issues so i just set this globally on all games, can be overidden in .ini if needed.
+    // since we're already hooking IO theres no problem doing this.
     Sleep(GetPrivateProfileIntA("Settings", "BindDelay", 2000, config));
 
-    //Set version text in test menu
+    // Set version text in test menu
     char pattern[] = "Version %d.%02d";
     DWORD versionText = FindPattern(pattern);
     char newText[] = "2EZConfig 1.03";
@@ -461,7 +599,6 @@ DWORD PatchThread() {
     CopyMemory((void*)(versionText), &newText, sizeof(newText));
     VirtualProtect((LPVOID)(versionText), sizeof(newText), OldProtection, NULL);
 
-
     if (strcmp(currGame.name, "Evolve") == 0 && GetPrivateProfileIntA("Settings", "EvWin10Fix", 0, config)) {
         NOPMemory(baseAddress, 0x11757);
         NOPMemory(baseAddress, 0x11758);
@@ -469,12 +606,6 @@ DWORD PatchThread() {
         NOPMemory(baseAddress, 0x11770);
         NOPMemory(baseAddress, 0x11771);
     }
-    //Sometimes GetModuleHandleA wasnt working?
-    //set to the known base address offset
-    //This has never not worked but I dont want to rely on it
-    //if (currGame.baseAddressOverride) {
-    //    baseAddress = 0x400000;
-    //}
 
     if (currGame.devOffset != 0x00 && GetPrivateProfileIntA("Settings", "EnableDevControls", 0, config)) {
         setDevBinding(baseAddress, currGame.devOffset, ControliniPath);
@@ -488,13 +619,12 @@ DWORD PatchThread() {
         zeroMemory(baseAddress, currGame.songTimerOffset);
     }
 
-    //FINAL save settings patch
+    // FINAL save settings patch
     if (strcmp(currGame.name, "Final") == 0 && GetPrivateProfileIntA("KeepSettings", "Enabled", 0, config)) {
-            FnKeepSettings(baseAddress);
+        FnKeepSettings(baseAddress);
     }
 
     if (GetPrivateProfileIntA("StageLock", "Enabled", 0, config)) {
-        
         if (strcmp(currGame.name, "Final") == 0) {
             FNStageLock(baseAddress);
         }
@@ -506,7 +636,6 @@ DWORD PatchThread() {
         if (strcmp(currGame.name, "Final:EX") == 0) {
             FNEXStageLock(baseAddress);
         }
-        
     }
 
     vTT[0].plus = GetPrivateProfileIntA("P1 TT+", "Binding", NULL, ControliniPath);
@@ -517,33 +646,23 @@ DWORD PatchThread() {
     HANDLE turntableThread = CreateThread(NULL, 0, virtualTTThread, NULL, 0, NULL);
     HANDLE inputThread = CreateThread(NULL, 0, alternateInputThread, NULL, 0, NULL);
 
-    
-    
     return NULL;
 }
 
-// DllMain에서 초기화
+// DllMain initialization
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
 {
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        if (!InitArduino()) {
-            printf("아두이노 연결 실패\n");
+        if (!arduinoController.Initialize()) {
+            // Handle initialization failure (if needed)
         }
         CreateThread(0, 0, (LPTHREAD_START_ROUTINE)PatchThread, 0, 0, 0);
         break;
 
     case DLL_PROCESS_DETACH:
-        if (hSerial != INVALID_HANDLE_VALUE) {
-            SendToArduino("0\n");  // LOW
-            Sleep(100);            // 명령이 처리될 시간을 줌
-            CloseHandle(hSerial);  // 시리얼 포트 닫기
-            hSerial = INVALID_HANDLE_VALUE;
-            printf("아두이노 연결 종료 및 릴레이 OFF\n");
-        }
-        isRunning = false;  // 다른 스레드들 종료
-        Sleep(200);         // 스레드들이 종료될 시간을 줌
+        // ArduinoController's destructor will handle cleanup automatically
         break;
     }
     return TRUE;

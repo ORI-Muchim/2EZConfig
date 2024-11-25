@@ -39,17 +39,15 @@ UINT8 input::JoyAxisPos(int joyID, int axis) {
     joyinfo.dwFlags = JOY_RETURNALL;
     DWORD result = joyGetPosEx(joyID, &joyinfo);
     if (result == JOYERR_NOERROR) {
-        if (!axis) {
-            return joyinfo.dwYpos / 257;
+        if (!axis) {  // if axis is 0
+            return joyinfo.dwXpos / 257;  // return x axis
         }
-        else {
-            return joyinfo.dwXpos / 257;
+        else {        // if axis is 1
+            return joyinfo.dwYpos / 257;  // return y axis
         }
-
     }
     return 255;
 }
-
 
 bool input::isKbButtonPressed(DWORD key)
 {
