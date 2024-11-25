@@ -1,4 +1,10 @@
 # 2EZProject
+
+[Original Repo](https://github.com/ben-rnd/2EZConfig)
+
+## Changes
+- Add Light(NEON) OUT -> Working confirmed on FNEX(EZ2AC Memory -> Arduino)
+
 disclaimer: This project was migrated from dev.s-ul.eu gitlab ni 2023
 
 This is a tool designed to enable USB controllers to work with all versions of EZ2DJ/AC, aswell as offering various patches and hacks to make the home experience more enjoyable. The motivation behind this tool is for the preservation of the most important gamemode of all time: EZ2Catch.
@@ -17,7 +23,6 @@ All Patches are applied in memory after launching the game, and make no modifica
 #### FN
 - "Keep Settings" patch. An experimental patch that persists your game settings set between credits - Only stable when playing 5k and 7k Standard.
 	
-
 ## Get Involved!
 Very open to contributions or suggestions, so please get involved to improve the tool :). 
 ### Current Priority
@@ -49,6 +54,3 @@ If i find anything else that improves compatibilty ill update this list
 ## Contact
 
 Please feel free to contact me on sows (IYKYK)
-
-
-
