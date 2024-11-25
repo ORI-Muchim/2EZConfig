@@ -1,9 +1,11 @@
 # 2EZProject
 
-[Original Repo](https://github.com/ben-rnd/2EZConfig)
+## [Original Repo](https://github.com/ben-rnd/2EZConfig)
 
 ## Changes
 - Add Light(NEON) OUT -> Working confirmed on FNEX(EZ2AC Memory -> Arduino)
+
+## Thanks to DJKero and Kasaski for their help with this project!
 
 disclaimer: This project was migrated from dev.s-ul.eu gitlab ni 2023
 
