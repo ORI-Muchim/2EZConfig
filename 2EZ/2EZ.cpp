@@ -638,10 +638,10 @@ DWORD PatchThread() {
         }
     }
 
-    vTT[0].plus = GetPrivateProfileIntA("P1 TT+", "Binding", NULL, ControliniPath);
-    vTT[0].minus = GetPrivateProfileIntA("P1 TT-", "Binding", NULL, ControliniPath);
-    vTT[1].plus = GetPrivateProfileIntA("P2 TT+", "Binding", NULL, ControliniPath);
-    vTT[1].minus = GetPrivateProfileIntA("P2 TT-", "Binding", NULL, ControliniPath);
+    vTT[0].plus = GetPrivateProfileIntA("P1 Turntable +", "Binding", NULL, ControliniPath);
+    vTT[0].minus = GetPrivateProfileIntA("P1 Turntable -", "Binding", NULL, ControliniPath);
+    vTT[1].plus = GetPrivateProfileIntA("P2 Turntable +", "Binding", NULL, ControliniPath);
+    vTT[1].minus = GetPrivateProfileIntA("P2 Turntable -", "Binding", NULL, ControliniPath);
 
     HANDLE turntableThread = CreateThread(NULL, 0, virtualTTThread, NULL, 0, NULL);
     HANDLE inputThread = CreateThread(NULL, 0, alternateInputThread, NULL, 0, NULL);

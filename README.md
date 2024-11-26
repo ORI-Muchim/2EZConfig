@@ -5,6 +5,14 @@
 ## Changes
 - Add Light(NEON) OUT -> Working confirmed on FNEX(EZ2AC Memory -> Arduino)
 
+## To-Do
+Fixed[✅] / Working In Progress[🚧] / Canceled, Deprecated[❌]
+
+ - [✅] NEON OUT -> Working confirmed on FNEX(EZ2AC game memory -> Arduino)
+ - [🚧] Number of issues with Mode Select Timer Freeze and Song Select Timer Freeze not working properly
+ - [🚧] Enable note judgment range changes
+ - [🚧] Troubleshooting Autoplay sometimes not running
+
 ## Thanks to DJKero and Kasaski for their help with this project!
 
 disclaimer: This project was migrated from dev.s-ul.eu gitlab ni 2023

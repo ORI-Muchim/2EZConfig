@@ -237,6 +237,11 @@ void settingsWindow() {
     int defaultNote = GetPrivateProfileIntA("KeepSettings", "DefaultNote", 0, ConfigIniPath);
     int defaultPanel = GetPrivateProfileIntA("KeepSettings", "DefaultPanel", 0, ConfigIniPath);
     int defaultVisual = GetPrivateProfileIntA("KeepSettings", "DefaultVisual", 0, ConfigIniPath);
+    bool enableNoteJudgment = GetPrivateProfileIntA("JudgmentDelta", "Enabled", 0, ConfigIniPath) != 0;
+    int kool = GetPrivateProfileIntA("JudgmentDelta", "Kool", 2, ConfigIniPath);
+    int cool = GetPrivateProfileIntA("JudgmentDelta", "Cool", 2, ConfigIniPath);
+    int good = GetPrivateProfileIntA("JudgmentDelta", "Good", 2, ConfigIniPath);
+    int miss = GetPrivateProfileIntA("JudgmentDelta", "Miss", 2, ConfigIniPath);
 
     //Begin Settings Window
     ImGui::BeginChild("Settings", { 0, ImGui::GetWindowHeight() - 85 }, false, ImGuiWindowFlags_HorizontalScrollbar);
@@ -321,6 +326,69 @@ void settingsWindow() {
         ImGui::SameLine();
         HelpMarker("Pauses the count down timer when selecting a song.");
         WritePrivateProfileString("Settings", "SongSelectTimerFreeze", _itoa(songFreeze, buff, 10), ConfigIniPath);
+    }
+
+    // New "Enable Note Judgment" option
+    if (djGames[GameVer].hasJudgmentDelta) { // JudgmentDelta
+        ImGui::Checkbox("Enable Note Judgment", &enableNoteJudgment);
+        ImGui::SameLine();
+        HelpMarker("Adjust the note judgment of the song.");
+        WritePrivateProfileString("JudgmentDelta", "Enabled", enableNoteJudgment ? "1" : "0", ConfigIniPath);
+
+        if (enableNoteJudgment) {
+            ImGui::Indent(16.0f); // indent
+
+            // KOOL
+            char koolStr[4]; // max 3 dights + null terminator
+            sprintf(koolStr, "%d", kool);
+            ImGui::PushItemWidth(30.0f); // width
+            if (ImGui::InputText("KOOL", koolStr, sizeof(koolStr), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
+                kool = atoi(koolStr);
+                // input validation
+                if (kool < 0) kool = 0;
+                if (kool > 999) kool = 999;
+                WritePrivateProfileString("JudgmentDelta", "Kool", std::to_string(kool).c_str(), ConfigIniPath);
+            }
+            ImGui::PopItemWidth();
+
+            // COOL
+            char coolStr[4];
+            sprintf(coolStr, "%d", cool);
+            ImGui::PushItemWidth(30.0f);
+            if (ImGui::InputText("COOL", coolStr, sizeof(coolStr), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
+                cool = atoi(coolStr);
+                if (cool < 0) cool = 0;
+                if (cool > 999) cool = 999;
+                WritePrivateProfileString("JudgmentDelta", "Cool", std::to_string(cool).c_str(), ConfigIniPath);
+            }
+            ImGui::PopItemWidth();
+
+            // GOOD
+            char goodStr[4];
+            sprintf(goodStr, "%d", good);
+            ImGui::PushItemWidth(30.0f);
+            if (ImGui::InputText("GOOD", goodStr, sizeof(goodStr), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
+                good = atoi(goodStr);
+                if (good < 0) good = 0;
+                if (good > 999) good = 999;
+                WritePrivateProfileString("JudgmentDelta", "Good", std::to_string(good).c_str(), ConfigIniPath);
+            }
+            ImGui::PopItemWidth();
+
+            // MISS
+            char missStr[4];
+            sprintf(missStr, "%d", miss);
+            ImGui::PushItemWidth(30.0f);
+            if (ImGui::InputText("MISS", missStr, sizeof(missStr), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
+                miss = atoi(missStr);
+                if (miss < 0) miss = 0;
+                if (miss > 999) miss = 999;
+                WritePrivateProfileString("JudgmentDelta", "Miss", std::to_string(miss).c_str(), ConfigIniPath);
+            }
+            ImGui::PopItemWidth();
+
+            ImGui::Unindent(16.0f); // unindent
+        }
     }
 
     if (strcmp(djGames[GameVer].name, "Evolve") == 0) {
@@ -1055,14 +1123,14 @@ void lightsWindow() {
     ImGui::Text("Arduino Communication Status");
     ImGui::Separator();
 
-    // 디버그 로그 파일을 읽어서 COM 포트 정보 출력
+    // Read the debug log file to output COM port information
     FILE* fp;
     char line[256];
     bool found = false;
 
     if (fopen_s(&fp, "debug.log", "r") == 0) {
         while (fgets(line, sizeof(line), fp)) {
-            // "Successfully connected" 라인을 찾아서 COM 포트 정보 추출
+            // Find the line “Successfully connected” and extract the COM port information
             if (strstr(line, "Successfully connected to COM")) {
                 char* portInfo = strstr(line, "COM");
                 if (portInfo) {
