@@ -20,12 +20,53 @@
 #include <ShlObj.h>
 #include <Shlwapi.h>
 
+#include <gdiplus.h>
+#pragma comment(lib, "gdiplus.lib")
+#include <ctime>
+
+// GDI+ Encoder CLSID Get Function
+int GetEncoderClsid(const WCHAR* format, CLSID* pClsid) {
+    UINT num = 0;
+    UINT size = 0;
+
+    Gdiplus::ImageCodecInfo* pImageCodecInfo = NULL;
+
+    Gdiplus::GetImageEncodersSize(&num, &size);
+    if (size == 0)
+        return -1;
+
+    pImageCodecInfo = (Gdiplus::ImageCodecInfo*)(malloc(size));
+    if (pImageCodecInfo == NULL)
+        return -1;
+
+    Gdiplus::GetImageEncoders(num, size, pImageCodecInfo);
+
+    for (UINT j = 0; j < num; ++j) {
+        if (wcscmp(pImageCodecInfo[j].MimeType, format) == 0) {
+            *pClsid = pImageCodecInfo[j].Clsid;
+            free(pImageCodecInfo);
+            return j;
+        }
+    }
+
+    free(pImageCodecInfo);
+    return -1;
+}
+
+// String to wstring
+std::wstring str2wstr(const std::string& str) {
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
+    return wstrTo;
+}
 
 using namespace EZConfig;
 
 void settingsWindow();
 void analogsWindow();
 void buttonsWindow();
+void lightsWindow();
 void HelpMarker(const char* desc);
 int detectGameVersion();
 
@@ -96,9 +137,10 @@ int EZConfig::RenderUI(GLFWwindow* window) {
                 ImGui::EndTabItem();
             }
 
+            //Begin Lights Tab
             if (ImGui::BeginTabItem("Lights"))
             {
-                //lightsWindow();
+                lightsWindow();
                 ImGui::EndTabItem();
             }
 
@@ -117,10 +159,10 @@ int EZConfig::RenderUI(GLFWwindow* window) {
     }
 
     ImGui::Text("");
-    ImGui::SameLine(ImGui::GetWindowWidth() - 170);
-    ImGui::Text("Made by kasaski - 2022");
+    ImGui::SameLine(ImGui::GetWindowWidth() - 400);
+    ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.8f), "Made by kasaski - 2022 / Modified by ORI-Muchim - 2024");
     ImGui::End();
-	return 1;
+    return 1;
 }
 
 //Sixth trax uses a launcher for booting and then switching between 6th and remember 1st
@@ -652,6 +694,114 @@ void buttonsWindow() {
     ImGui::Columns(1);
     ImGui::Separator();
 
+    // Screenshot section
+    ImGui::Columns(3, "screenshot");
+
+    // Screenshot key binding
+    GetPrivateProfileString("Screenshot", "Method", "", method, sizeof(method), ControliniPath);
+    binding = GetPrivateProfileIntA("Screenshot", "Binding", NULL, ControliniPath);
+    if (binding != NULL) {
+        if (GetAsyncKeyState(binding) & 0x8000) {
+            ImGui::TextColored(ImVec4(1, 0.7f, 0, 1), "Screenshot");
+            // Take screenshot
+            time_t now = time(0);
+            tm* ltm = localtime(&now);
+            char filename[256];
+            sprintf_s(filename, "Screenshot_%d%02d%02d_%02d%02d%02d.png",
+                1900 + ltm->tm_year, 1 + ltm->tm_mon, ltm->tm_mday,
+                ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+
+            // Create a screenshot directory
+            CreateDirectoryA("Screenshots", NULL);
+
+            // Create a full path
+            char fullPath[512];
+            sprintf_s(fullPath, "Screenshots\\%s", filename);
+
+            // Save screenshot
+            HWND gameWindow = FindWindowA(NULL, "EZ2AC");
+            if (gameWindow) {
+                HDC hdcWindow = GetDC(gameWindow);
+                HDC hdcMemDC = CreateCompatibleDC(hdcWindow);
+
+                RECT windowRect;
+                GetClientRect(gameWindow, &windowRect);
+                int width = windowRect.right - windowRect.left;
+                int height = windowRect.bottom - windowRect.top;
+
+                HBITMAP hbmScreen = CreateCompatibleBitmap(hdcWindow, width, height);
+                HBITMAP hbmOld = (HBITMAP)SelectObject(hdcMemDC, hbmScreen);
+
+                BitBlt(hdcMemDC, 0, 0, width, height, hdcWindow, 0, 0, SRCCOPY);
+
+                // bmp to png
+                Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+                ULONG_PTR gdiplusToken;
+                Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+
+                CLSID pngClsid;
+                GetEncoderClsid(L"image/png", &pngClsid);
+
+                Gdiplus::Bitmap* bitmap = new Gdiplus::Bitmap(hbmScreen, NULL);
+                bitmap->Save(str2wstr(fullPath).c_str(), &pngClsid);
+
+                delete bitmap;
+                Gdiplus::GdiplusShutdown(gdiplusToken);
+
+                SelectObject(hdcMemDC, hbmOld);
+                DeleteObject(hbmScreen);
+                DeleteDC(hdcMemDC);
+                ReleaseDC(gameWindow, hdcWindow);
+            }
+        }
+        else {
+            ImGui::Text("Screenshot");
+        }
+        ImGui::NextColumn();
+        ImGui::Text("%s:%s", method, GetKeyName(binding).c_str());
+    }
+    else {
+        ImGui::Text("Screenshot");
+        ImGui::NextColumn();
+        ImGui::BeginDisabled();
+        ImGui::Text("None");
+        ImGui::EndDisabled();
+    }
+
+    // Binding button
+    ImGui::NextColumn();
+    sprintf(buttonLabel, "Bind##Screenshot");
+    if (ImGui::Button(buttonLabel))
+        ImGui::OpenPopup("Screenshot");
+    if (ImGui::BeginPopupModal("Screenshot", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Press a key to bind screenshot function");
+        if (ImGui::Button("Close")) {
+            ImGui::CloseCurrentPopup();
+        }
+        else {
+            int key = input::checkKbPressedState();
+            if (key > 0) {
+                WritePrivateProfileString("Screenshot", "Method", "Key", ControliniPath);
+                WritePrivateProfileString("Screenshot", "Binding", _itoa(key, buff, sizeof(buff)), ControliniPath);
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        ImGui::EndPopup();
+    }
+
+    // Clear
+    if (binding != NULL) {
+        ImGui::SameLine();
+        sprintf(buttonLabel, "Clear##Screenshot");
+        if (ImGui::Button(buttonLabel)) {
+            WritePrivateProfileString("Screenshot", NULL, NULL, ControliniPath);
+        }
+    }
+
+    ImGui::Columns(1);
+    ImGui::Separator();
+
 
     //BEGIN DEV BINDING
     ImGui::Text("Dev Input (Keyboard Only)");
@@ -899,6 +1049,54 @@ void analogsWindow() {
     ImGui::EndChild();
 }
 
+void lightsWindow() {
+    ImGui::BeginChild("lights", { 0, ImGui::GetWindowHeight() - 85 }, false);
+
+    ImGui::Text("Arduino Communication Status");
+    ImGui::Separator();
+
+    // 디버그 로그 파일을 읽어서 COM 포트 정보 출력
+    FILE* fp;
+    char line[256];
+    bool found = false;
+
+    if (fopen_s(&fp, "debug.log", "r") == 0) {
+        while (fgets(line, sizeof(line), fp)) {
+            // "Successfully connected" 라인을 찾아서 COM 포트 정보 추출
+            if (strstr(line, "Successfully connected to COM")) {
+                char* portInfo = strstr(line, "COM");
+                if (portInfo) {
+                    found = true;
+                    ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Status: Connected");
+                    ImGui::Text("Port: %.*s", 5, portInfo);
+                }
+                break;
+            }
+        }
+        fclose(fp);
+    }
+
+    if (!found) {
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Status: Not Connected");
+        ImGui::Text("Port: N/A");
+
+        ImGui::Separator();
+        ImGui::Text("Searching available ports COM2-COM10...");
+        static float progress = 0.0f;
+        progress += 0.002f;
+        if (progress > 1.0f) progress = 0.0f;
+        ImGui::ProgressBar(progress, ImVec2(0.0f, 0.0f));
+    }
+
+    ImGui::Separator();
+    ImGui::TextWrapped(
+        "Note: Arduino LED Controller is used for EZ2ON cabinet's neon lights. "
+        "Make sure your Arduino is properly connected and configured."
+    );
+
+    ImGui::EndChild();
+}
+
 void HelpMarker(const char* desc)
 {
     ImGui::TextDisabled("(?)");
@@ -972,10 +1170,3 @@ int detectGameVersion() {
     // could not open directory set to n-1
     return IM_ARRAYSIZE(djGames) - 2;
 }
-
-
-
-
-
-
-

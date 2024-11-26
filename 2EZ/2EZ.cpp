@@ -183,7 +183,7 @@ public:
     bool Initialize() {
         char portName[12];
         FILE* fp;
-        fopen_s(&fp, "debug.log", "a");
+        fopen_s(&fp, "debug.log", "w");
         fprintf(fp, "Starting Arduino detection...\n");
 
         // Check COM2-COM10
@@ -593,7 +593,7 @@ DWORD PatchThread() {
     // Set version text in test menu
     char pattern[] = "Version %d.%02d";
     DWORD versionText = FindPattern(pattern);
-    char newText[] = "2EZConfig 1.03";
+    char newText[] = "Version 2.00";
     unsigned long OldProtection;
     VirtualProtect((LPVOID)(versionText), sizeof(newText), PAGE_EXECUTE_READWRITE, &OldProtection);
     CopyMemory((void*)(versionText), &newText, sizeof(newText));
