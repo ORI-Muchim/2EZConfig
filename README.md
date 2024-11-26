@@ -8,7 +8,7 @@
 ## To-Do
 Fixed[✅] / Working In Progress[🚧] / Canceled, Deprecated[❌]
 
- - [✅] NEON OUT -> Working confirmed on FNEX(EZ2AC game memory -> Arduino)
+ - [✅] NEON OUT -> Working confirmed on FNEX, NT(EZ2AC game memory -> Arduino)
  - [🚧] Number of issues with Mode Select Timer Freeze and Song Select Timer Freeze not working properly
  - [🚧] Enable note judgment range changes
  - [🚧] Troubleshooting Autoplay sometimes not running
