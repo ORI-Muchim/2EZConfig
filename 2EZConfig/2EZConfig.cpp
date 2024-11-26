@@ -338,54 +338,34 @@ void settingsWindow() {
         if (enableNoteJudgment) {
             ImGui::Indent(16.0f); // indent
 
+            // Helper lambda for repeated code
+            auto handleInput = [](const char* label, int& value, const char* key) {
+                char buffer[4];
+                sprintf(buffer, "%d", value);
+                ImGui::PushItemWidth(30.0f);
+                if (ImGui::InputText(label, buffer, sizeof(buffer), ImGuiInputTextFlags_CharsDecimal)) {
+                    int newValue = atoi(buffer);
+                    if (newValue < 0) newValue = 0;
+                    if (newValue > 999) newValue = 999;
+                    if (newValue != value) {
+                        value = newValue;
+                        WritePrivateProfileString("JudgmentDelta", key, std::to_string(value).c_str(), ConfigIniPath);
+                    }
+                }
+                ImGui::PopItemWidth();
+            };
+
             // KOOL
-            char koolStr[4]; // max 3 dights + null terminator
-            sprintf(koolStr, "%d", kool);
-            ImGui::PushItemWidth(30.0f); // width
-            if (ImGui::InputText("KOOL", koolStr, sizeof(koolStr), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
-                kool = atoi(koolStr);
-                // input validation
-                if (kool < 0) kool = 0;
-                if (kool > 999) kool = 999;
-                WritePrivateProfileString("JudgmentDelta", "Kool", std::to_string(kool).c_str(), ConfigIniPath);
-            }
-            ImGui::PopItemWidth();
+            handleInput("KOOL", kool, "Kool");
 
             // COOL
-            char coolStr[4];
-            sprintf(coolStr, "%d", cool);
-            ImGui::PushItemWidth(30.0f);
-            if (ImGui::InputText("COOL", coolStr, sizeof(coolStr), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
-                cool = atoi(coolStr);
-                if (cool < 0) cool = 0;
-                if (cool > 999) cool = 999;
-                WritePrivateProfileString("JudgmentDelta", "Cool", std::to_string(cool).c_str(), ConfigIniPath);
-            }
-            ImGui::PopItemWidth();
+            handleInput("COOL", cool, "Cool");
 
             // GOOD
-            char goodStr[4];
-            sprintf(goodStr, "%d", good);
-            ImGui::PushItemWidth(30.0f);
-            if (ImGui::InputText("GOOD", goodStr, sizeof(goodStr), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
-                good = atoi(goodStr);
-                if (good < 0) good = 0;
-                if (good > 999) good = 999;
-                WritePrivateProfileString("JudgmentDelta", "Good", std::to_string(good).c_str(), ConfigIniPath);
-            }
-            ImGui::PopItemWidth();
+            handleInput("GOOD", good, "Good");
 
             // MISS
-            char missStr[4];
-            sprintf(missStr, "%d", miss);
-            ImGui::PushItemWidth(30.0f);
-            if (ImGui::InputText("MISS", missStr, sizeof(missStr), ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
-                miss = atoi(missStr);
-                if (miss < 0) miss = 0;
-                if (miss > 999) miss = 999;
-                WritePrivateProfileString("JudgmentDelta", "Miss", std::to_string(miss).c_str(), ConfigIniPath);
-            }
-            ImGui::PopItemWidth();
+            handleInput("MISS", miss, "Miss");
 
             ImGui::Unindent(16.0f); // unindent
         }
@@ -843,7 +823,7 @@ void buttonsWindow() {
         ImGui::OpenPopup("Screenshot");
     if (ImGui::BeginPopupModal("Screenshot", NULL, ImGuiWindowFlags_AlwaysAutoResize))
     {
-        ImGui::Text("Press a key to bind screenshot function");
+        ImGui::Text("Press a button to bind it");
         if (ImGui::Button("Close")) {
             ImGui::CloseCurrentPopup();
         }
