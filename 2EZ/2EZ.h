@@ -364,8 +364,3 @@ DWORD FindPattern(char* pattern)
 	return NULL;
 
 }
-
-
-
-
-
