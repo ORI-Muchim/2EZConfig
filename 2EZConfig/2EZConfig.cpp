@@ -216,6 +216,7 @@ void settingsWindow() {
     bool DevControl = GetPrivateProfileIntA("Settings", "EnableDevControls", 0, ConfigIniPath);
     bool modeFreeze = GetPrivateProfileIntA("Settings", "ModeSelectTimerFreeze", 0, ConfigIniPath);
     bool songFreeze = GetPrivateProfileIntA("Settings", "SongSelectTimerFreeze", 0, ConfigIniPath);
+    bool enableNoteJudgment = GetPrivateProfileIntA("Settings", "JudgmentDelta", 0, ConfigIniPath);
 
     // EVOLVE settings
     bool evWin10Fix = GetPrivateProfileIntA("Settings", "EvWin10Fix", 0, ConfigIniPath);
@@ -237,11 +238,11 @@ void settingsWindow() {
     int defaultNote = GetPrivateProfileIntA("KeepSettings", "DefaultNote", 0, ConfigIniPath);
     int defaultPanel = GetPrivateProfileIntA("KeepSettings", "DefaultPanel", 0, ConfigIniPath);
     int defaultVisual = GetPrivateProfileIntA("KeepSettings", "DefaultVisual", 0, ConfigIniPath);
-    bool enableNoteJudgment = GetPrivateProfileIntA("JudgmentDelta", "Enabled", 0, ConfigIniPath) != 0;
-    int kool = GetPrivateProfileIntA("JudgmentDelta", "Kool", 2, ConfigIniPath);
-    int cool = GetPrivateProfileIntA("JudgmentDelta", "Cool", 2, ConfigIniPath);
-    int good = GetPrivateProfileIntA("JudgmentDelta", "Good", 2, ConfigIniPath);
-    int miss = GetPrivateProfileIntA("JudgmentDelta", "Miss", 2, ConfigIniPath);
+
+    int kool = GetPrivateProfileIntA("JudgmentDelta", "Kool", 5, ConfigIniPath);
+    int cool = GetPrivateProfileIntA("JudgmentDelta", "Cool", 5, ConfigIniPath);
+    int good = GetPrivateProfileIntA("JudgmentDelta", "Good", 5, ConfigIniPath);
+    int miss = GetPrivateProfileIntA("JudgmentDelta", "Miss", 5, ConfigIniPath);
 
     //Begin Settings Window
     ImGui::BeginChild("Settings", { 0, ImGui::GetWindowHeight() - 85 }, false, ImGuiWindowFlags_HorizontalScrollbar);
@@ -333,7 +334,7 @@ void settingsWindow() {
         ImGui::Checkbox("Enable Note Judgment", &enableNoteJudgment);
         ImGui::SameLine();
         HelpMarker("Adjust the note judgment of the song.");
-        WritePrivateProfileString("JudgmentDelta", "Enabled", enableNoteJudgment ? "1" : "0", ConfigIniPath);
+        WritePrivateProfileString("Settings", "JudgmentDelta", _itoa(enableNoteJudgment, buff, 10), ConfigIniPath);
 
         if (enableNoteJudgment) {
             ImGui::Indent(16.0f); // indent

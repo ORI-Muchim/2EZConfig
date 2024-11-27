@@ -57,7 +57,7 @@ static struct djGame {
 	{"2nd Trax ~It rules once again~", false, 0x00, 0x00, 0x00}, //no dump
 	{"3rd Trax ~Absolute Pitch~ ", false, 0x00, 0x00, 0x00},
 	{"4th Trax ~OVER MIND~ ", false, 0x00, 0x00, 0x00},
-	{"Platinum", false, 0x00, 0x00, 0x00 },
+	{"5th Platinum", false, 0x00, 0x00, 0x00 },
 	{"6th Trax ~Self Evolution~", false, 0x00, 0x00, 0x00},
 	{"7th Trax ~Resistance~", false, 0x00, 0x00, 0x00},
 	{"7th Trax Ver 1.5", false, 0x00, 0x00, 0x00},
@@ -68,7 +68,6 @@ static struct djGame {
 	{"Azure ExpressioN", false, 0x00, 0x00, 0x00}, //no dump
 	{"Azure ExpressioN Integral Composition", false, 0x00, 0x00, 0x00}, //no dump
 	{"Endless Circulation", false, 0xEFD4CC, 0x5978A, 0x53289}, //no good dump 
-	{"Evolve (Win98)", false, 0x00, 0x00, 0x00},
 	{"Evolve", false, 0x944C9C, 0x3A0DE, 0x38257},
 	{"Night Traveller", true, 0xF0FE14, 0x42A6D, 0x41854},
 	{"Time Traveller (1.83)", true, 0x1309D74, 0x4740A, 0x45F6C},// need updated dump
