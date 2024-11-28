@@ -160,8 +160,13 @@ int EZConfig::RenderUI(GLFWwindow* window) {
 
     ImGui::Text("");
     ImGui::SameLine(ImGui::GetWindowWidth() - 400);
-    ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.8f), "Made by kasaski - 2022 / Modified by ORI-Muchim - 2024");
-    ImGui::End();
+
+    float windowWidth = ImGui::GetWindowWidth();
+    float textWidth = ImGui::CalcTextSize("Thanks to DJKero & kasaski / Modified ORI-Muchim - 2024").x;
+    float textPosX = (windowWidth - textWidth) * 0.5f;
+
+    ImGui::SetCursorPosX(textPosX);
+    ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.8f), "Thanks to DJKero & kasaski / Modified ORI-Muchim - 2024");    ImGui::End();
     return 1;
 }
 
@@ -1111,7 +1116,7 @@ void lightsWindow() {
 
     if (fopen_s(&fp, "debug.log", "r") == 0) {
         while (fgets(line, sizeof(line), fp)) {
-            // Find the line ¡°Successfully connected¡± and extract the COM port information
+            // Find the line ï¿½ï¿½Successfully connectedï¿½ï¿½ and extract the COM port information
             if (strstr(line, "Successfully connected to COM")) {
                 char* portInfo = strstr(line, "COM");
                 if (portInfo) {
