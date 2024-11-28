@@ -10,7 +10,7 @@ Fixed[✅] / Working In Progress[🚧] / Canceled, Deprecated[❌]
 
  - [✅] NEON OUT -> Working confirmed on FNEX, NT(EZ2AC game memory -> Arduino)
  - [✅] Number of issues with Mode Select Timer Freeze and Song Select Timer Freeze not working properly - edited ```static struct djGame```
- - [✅] Screenshot sometimes not running
+ - [✅] Screenshot sometimes not working
  - [🚧] Enable note judgment range changes
 
 ## Thanks to DJKero and Kasaski for their help with this project!
