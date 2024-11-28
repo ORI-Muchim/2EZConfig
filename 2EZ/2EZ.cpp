@@ -1,6 +1,8 @@
 // Ez2 Io Hook built by kasaski - 2022.
 // Very simple solution to Hook EZ2 IO, surprised how simple it is and why nothing has been released earler 
 // by much more capable programmers :).
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "2EZ.h"
 #include <ShlObj.h>
 #include <Shlwapi.h>
@@ -10,6 +12,9 @@
 #include <Windows.h>
 #include <queue>
 #include <mutex>
+#include <gdiplus.h>
+#pragma comment(lib, "gdiplus.lib")
+#include <ctime>
 using namespace std;
 
 // Serial communication related constants
@@ -27,6 +32,7 @@ uint8_t apKey;
 int GameVer;
 djGame currGame;
 LPCSTR config = ".\\2EZ.ini";
+char ControliniPath[MAX_PATH];
 
 // Class for managing serial communication status
 class ArduinoController {
@@ -445,76 +451,159 @@ DWORD WINAPI virtualTTThread(void* data) {
     return 0;
 }
 
+// Add these helper functions at the beginning of the file
+// GDI+ Encoder CLSID Get Function
+int GetEncoderClsid(const WCHAR* format, CLSID* pClsid) {
+    UINT num = 0;
+    UINT size = 0;
+
+    Gdiplus::ImageCodecInfo* pImageCodecInfo = NULL;
+
+    Gdiplus::GetImageEncodersSize(&num, &size);
+    if (size == 0)
+        return -1;
+
+    pImageCodecInfo = (Gdiplus::ImageCodecInfo*)(malloc(size));
+    if (pImageCodecInfo == NULL)
+        return -1;
+
+    Gdiplus::GetImageEncoders(num, size, pImageCodecInfo);
+
+    for (UINT j = 0; j < num; ++j) {
+        if (wcscmp(pImageCodecInfo[j].MimeType, format) == 0) {
+            *pClsid = pImageCodecInfo[j].Clsid;
+            free(pImageCodecInfo);
+            return j;
+        }
+    }
+
+    free(pImageCodecInfo);
+    return -1;
+}
+
+// String to wstring conversion
+std::wstring str2wstr(const std::string& str) {
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
+    return wstrTo;
+}
+
+// Screenshot function to be called when the hotkey is pressed
+void TakeScreenshot() {
+    Beep(800, 100);
+
+    // 게임 이름 가져오기
+    char exeName[255];
+    GetPrivateProfileStringA("Settings", "EXEName", "EZ2AC.exe", exeName, sizeof(exeName), ControliniPath);
+
+    // 확장자 제거 (파일명만 남기기)
+    char* dot = strrchr(exeName, '.');
+    if (dot) *dot = '\0';
+
+    // 게임 창 찾기
+    HWND gameWindow = FindWindowA(NULL, exeName);
+    if (!gameWindow) {
+        // 백업 - 다른 일반적인 창 이름들 시도
+        const char* backupNames[] = { "EZ2AC", "EZ2DJ" };
+        for (const char* name : backupNames) {
+            gameWindow = FindWindowA(NULL, name);
+            if (gameWindow) break;
+        }
+    }
+
+    if (gameWindow) {
+        // 현재 시간으로 파일명 생성
+        time_t now = time(0);
+        tm* ltm = localtime(&now);
+        char filename[256];
+        sprintf_s(filename, "Screenshot_%d%02d%02d_%02d%02d%02d.png",
+            1900 + ltm->tm_year, 1 + ltm->tm_mon, ltm->tm_mday,
+            ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
+
+        // Screenshots 디렉토리 생성
+        CreateDirectoryA("Screenshots", NULL);
+
+        // 전체 파일 경로 생성
+        char fullPath[512];
+        sprintf_s(fullPath, "Screenshots\\%s", filename);
+
+        // 스크린샷 캡처 시작
+        HDC hdcWindow = GetDC(gameWindow);
+        HDC hdcMemDC = CreateCompatibleDC(hdcWindow);
+
+        RECT windowRect;
+        GetClientRect(gameWindow, &windowRect);
+        int width = windowRect.right - windowRect.left;
+        int height = windowRect.bottom - windowRect.top;
+
+        HBITMAP hbmScreen = CreateCompatibleBitmap(hdcWindow, width, height);
+        HBITMAP hbmOld = (HBITMAP)SelectObject(hdcMemDC, hbmScreen);
+
+        BitBlt(hdcMemDC, 0, 0, width, height, hdcWindow, 0, 0, SRCCOPY);
+
+        // GDI+ 초기화
+        Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+        ULONG_PTR gdiplusToken;
+        Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+
+        // PNG 인코더 CLSID 가져오기
+        CLSID pngClsid;
+        GetEncoderClsid(L"image/png", &pngClsid);
+
+        // PNG로 저장
+        Gdiplus::Bitmap* bitmap = new Gdiplus::Bitmap(hbmScreen, NULL);
+        bitmap->Save(str2wstr(fullPath).c_str(), &pngClsid);
+
+        // 리소스 정리
+        delete bitmap;
+        Gdiplus::GdiplusShutdown(gdiplusToken);
+        SelectObject(hdcMemDC, hbmOld);
+        DeleteObject(hbmScreen);
+        DeleteDC(hdcMemDC);
+        ReleaseDC(gameWindow, hdcWindow);
+    }
+}
+
 DWORD WINAPI alternateInputThread(void* data) {
+    // Get screenshot key binding
+    int screenshotKey = GetPrivateProfileIntA("Screenshot", "Binding", NULL, ControliniPath);
+    
+    bool autoPlayButtonState = false;
+    uintptr_t apOffset = 0;
 
+    // Set autoplay offset based on game
     if (strcmp(currGame.name, "Final:EX") == 0) {
-        bool autoPlayButtonState = false;
-        uintptr_t fnexApOffset = 0x175F2E0;
-
-        while (true) {
-            if (GetAsyncKeyState(apKey) & 0x8000) {
-                if (!autoPlayButtonState) {
-                    autoPlayButtonState = true;
-                    ChangeMemory(baseAddress, 1 + (0 - (*reinterpret_cast<int*>(baseAddress + fnexApOffset))), fnexApOffset);
-                }
-            }
-            else if (autoPlayButtonState) {
-                autoPlayButtonState = false;
-            }
-        }
+        apOffset = 0x175F2E0;
+    }
+    else if (strcmp(currGame.name, "Final") == 0) {
+        apOffset = 0x175E290;
+    }
+    else if (strcmp(currGame.name, "Night Traveller") == 0) {
+        apOffset = 0x1360EA4;
+    }
+    else if (strcmp(currGame.name, "Endless Circulation") == 0) {
+        apOffset = 0xEF606C;
     }
 
-    if (strcmp(currGame.name, "Final") == 0) {
-        bool autoPlayButtonState = false;
-        uintptr_t apOffset = 0x175E290;
-
-        while (true) {
-            if (GetAsyncKeyState(apKey) & 0x8000) {
-                if (!autoPlayButtonState) {
-                    autoPlayButtonState = true;
-                    ChangeMemory(baseAddress, 1 + (0 - (*reinterpret_cast<int*>(baseAddress + apOffset))), apOffset);
-                }
-            }
-            else if (autoPlayButtonState) {
-                autoPlayButtonState = false;
+    while (true) {
+        // Autoplay handling
+        if (apOffset != 0 && (GetAsyncKeyState(apKey) & 0x8000)) {
+            if (!autoPlayButtonState) {
+                autoPlayButtonState = true;
+                ChangeMemory(baseAddress, 1 + (0 - (*reinterpret_cast<int*>(baseAddress + apOffset))), apOffset);
             }
         }
-    }
+        else if (autoPlayButtonState) {
+            autoPlayButtonState = false;
+        }
 
-    if (strcmp(currGame.name, "Night Traveller") == 0) {
-        bool autoPlayButtonState = false;
-        uintptr_t apOffset = 0x1360EA4;
-
-        while (true) {
-            if (GetAsyncKeyState(apKey) & 0x8000) {
-                if (!autoPlayButtonState) {
-                    autoPlayButtonState = true;
-                    ChangeMemory(baseAddress, 1 + (0 - (*reinterpret_cast<int*>(baseAddress + apOffset))), apOffset);
-                }
-            }
-            else if (autoPlayButtonState) {
-                autoPlayButtonState = false;
-            }
+        // Screenshot handling for all games
+        if (screenshotKey && (GetAsyncKeyState(screenshotKey) & 0x8000)) {
+            TakeScreenshot();
         }
     }
-
-    if (strcmp(currGame.name, "Endless Circulation") == 0) {
-        bool autoPlayButtonState = false;
-        uintptr_t apOffset = 0xEF606C;
-
-        while (true) {
-            if (GetAsyncKeyState(apKey) & 0x8000) {
-                if (!autoPlayButtonState) {
-                    autoPlayButtonState = true;
-                    ChangeMemory(baseAddress, 1 + (0 - (*reinterpret_cast<int*>(baseAddress + apOffset))), apOffset);
-                }
-            }
-            else if (autoPlayButtonState) {
-                autoPlayButtonState = false;
-            }
-        }
-    }
-
+    Sleep(1);
     return 0;
 }
 
@@ -524,9 +613,6 @@ DWORD PatchThread() {
     baseAddress = (uintptr_t)GetModuleHandleA(NULL);
     GameVer = GetPrivateProfileIntA("Settings", "GameVer", 0, config);
     currGame = djGames[GameVer];
-
-    // Get Button Bindings config file
-    char ControliniPath[MAX_PATH];
     SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, ControliniPath);
     PathAppendA(ControliniPath, (char*)"2EZ.ini");
 
@@ -655,6 +741,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
+        // ControliniPath 초기화 추가
+        SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, ControliniPath);
+        PathAppendA(ControliniPath, (char*)"2EZ.ini");
+
         if (!arduinoController.Initialize()) {
             // Handle initialization failure (if needed)
         }
@@ -662,7 +752,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         break;
 
     case DLL_PROCESS_DETACH:
-        // ArduinoController's destructor will handle cleanup automatically
         break;
     }
     return TRUE;
