@@ -18,7 +18,7 @@
 using namespace std;
 
 // Serial communication related constants
-const DWORD BAUD_RATE = CBR_9600;
+const DWORD BAUD_RATE = CBR_4800;
 const DWORD SERIAL_TIMEOUT = 50;
 const size_t MAX_COMMAND_LENGTH = 3;  // "0\n" or "1\n"
 const DWORD RECONNECT_DELAY = 1000;   // Reconnection wait time (ms)
@@ -51,7 +51,7 @@ private:
             return false;
         }
 
-        dcbSerialParams.BaudRate = 9600;
+        dcbSerialParams.BaudRate = 4800;
         dcbSerialParams.ByteSize = 8;
         dcbSerialParams.StopBits = ONESTOPBIT;
         dcbSerialParams.Parity = NOPARITY;
@@ -93,7 +93,7 @@ private:
             return false;
         }
 
-        dcbTestParams.BaudRate = 9600;
+        dcbTestParams.BaudRate = 4800;
         dcbTestParams.ByteSize = 8;
         dcbTestParams.StopBits = ONESTOPBIT;
         dcbTestParams.Parity = NOPARITY;
@@ -222,7 +222,7 @@ public:
                 DCB dcbParams = { 0 };
                 dcbParams.DCBlength = sizeof(dcbParams);
                 GetCommState(testHandle, &dcbParams);
-                dcbParams.BaudRate = 9600;
+                dcbParams.BaudRate = 4800;
                 dcbParams.ByteSize = 8;
                 dcbParams.StopBits = ONESTOPBIT;
                 dcbParams.Parity = NOPARITY;
