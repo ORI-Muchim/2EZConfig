@@ -1,7 +1,7 @@
 const int RELAY_PIN = 7;  // Relay pin number
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(4800);
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, LOW);  // Initialize relay to off
 }
