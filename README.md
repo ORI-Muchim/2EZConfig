@@ -13,6 +13,9 @@ Fixed[✅] / Working In Progress[🚧] / Canceled, Deprecated[❌]
  - [✅] Screenshot sometimes not working
  - [🚧] Enable note judgment range changes
 
+## About Autoplay
+If the autoplay feature is not enabled on the start screen, it will not work properly in-game (input is delayed).
+
 ## Thanks to DJKero and Kasaski for their help with this project!
 
 disclaimer: This project was migrated from dev.s-ul.eu gitlab ni 2023
