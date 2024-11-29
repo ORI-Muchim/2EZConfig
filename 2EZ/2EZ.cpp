@@ -151,6 +151,9 @@ public:
             return true;
         }
 
+        // Clear any stale data in the buffers
+        PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
+
         char cmdBuffer[3];  // "0\n" or "1\n"
         sprintf_s(cmdBuffer, "%c\n", command);
 
@@ -165,14 +168,21 @@ public:
         BOOL result = WriteFile(hSerial, cmdBuffer, strlen(cmdBuffer), &bytesWritten, &osWriter);
 
         if (!result && GetLastError() == ERROR_IO_PENDING) {
-            // Waiting for asynchronous tasks to complete
-            DWORD waitResult = WaitForSingleObject(osWriter.hEvent, 500);  // Timeout 0.5sec
+            // Waiting for asynchronous tasks to complete with shorter timeout
+            DWORD waitResult = WaitForSingleObject(osWriter.hEvent, 100);  // reduce timeout to 100ms
             if (waitResult == WAIT_OBJECT_0) {
                 GetOverlappedResult(hSerial, &osWriter, &bytesWritten, FALSE);
                 result = (bytesWritten == strlen(cmdBuffer));
             }
             else {
                 result = FALSE;
+                // Reset the serial connection if timeout occurs
+                if (hSerial != INVALID_HANDLE_VALUE) {
+                    CloseHandle(hSerial);
+                    hSerial = INVALID_HANDLE_VALUE;
+                    isInitialized = false;
+                    Initialize();
+                }
             }
         }
 
@@ -180,9 +190,10 @@ public:
 
         if (result) {
             lastCommand = command;
-            FlushFileBuffers(hSerial);  // Buffer immediate transfer
+            FlushFileBuffers(hSerial);  // Ensure data is written
             return true;
         }
+
         return false;
     }
 
