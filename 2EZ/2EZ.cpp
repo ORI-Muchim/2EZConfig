@@ -137,7 +137,7 @@ public:
 
     ~ArduinoController() {
         if (hSerial != INVALID_HANDLE_VALUE) {
-            SendCommand('1');  // Turn off relay when exiting
+            SendCommand('0');  // Turn off relay when exiting
             CloseHandle(hSerial);
         }
     }
@@ -493,18 +493,18 @@ std::wstring str2wstr(const std::string& str) {
 void TakeScreenshot() {
     Beep(800, 100);
 
-    // 게임 이름 가져오기
+    // Get game executable name
     char exeName[255];
     GetPrivateProfileStringA("Settings", "EXEName", "EZ2AC.exe", exeName, sizeof(exeName), ControliniPath);
 
-    // 확장자 제거 (파일명만 남기기)
+    // Remove extension (keep only filename)
     char* dot = strrchr(exeName, '.');
     if (dot) *dot = '\0';
 
-    // 게임 창 찾기
+    // Find game window
     HWND gameWindow = FindWindowA(NULL, exeName);
     if (!gameWindow) {
-        // 백업 - 다른 일반적인 창 이름들 시도
+        // Backup - try other common window names
         const char* backupNames[] = { "EZ2AC", "EZ2DJ" };
         for (const char* name : backupNames) {
             gameWindow = FindWindowA(NULL, name);
@@ -513,7 +513,7 @@ void TakeScreenshot() {
     }
 
     if (gameWindow) {
-        // 현재 시간으로 파일명 생성
+        // Generate filename with current timestamp
         time_t now = time(0);
         tm* ltm = localtime(&now);
         char filename[256];
@@ -521,14 +521,14 @@ void TakeScreenshot() {
             1900 + ltm->tm_year, 1 + ltm->tm_mon, ltm->tm_mday,
             ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
 
-        // Screenshots 디렉토리 생성
+        // Create Screenshots directory
         CreateDirectoryA("Screenshots", NULL);
 
-        // 전체 파일 경로 생성
+        // Create full file path
         char fullPath[512];
         sprintf_s(fullPath, "Screenshots\\%s", filename);
 
-        // 스크린샷 캡처 시작
+        // Start screenshot capture
         HDC hdcWindow = GetDC(gameWindow);
         HDC hdcMemDC = CreateCompatibleDC(hdcWindow);
 
@@ -539,23 +539,22 @@ void TakeScreenshot() {
 
         HBITMAP hbmScreen = CreateCompatibleBitmap(hdcWindow, width, height);
         HBITMAP hbmOld = (HBITMAP)SelectObject(hdcMemDC, hbmScreen);
-
         BitBlt(hdcMemDC, 0, 0, width, height, hdcWindow, 0, 0, SRCCOPY);
 
-        // GDI+ 초기화
+        // Initialize GDI+
         Gdiplus::GdiplusStartupInput gdiplusStartupInput;
         ULONG_PTR gdiplusToken;
         Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
-        // PNG 인코더 CLSID 가져오기
+        // Get PNG encoder CLSID
         CLSID pngClsid;
         GetEncoderClsid(L"image/png", &pngClsid);
 
-        // PNG로 저장
+        // Save as PNG
         Gdiplus::Bitmap* bitmap = new Gdiplus::Bitmap(hbmScreen, NULL);
         bitmap->Save(str2wstr(fullPath).c_str(), &pngClsid);
 
-        // 리소스 정리
+        // Cleanup resources
         delete bitmap;
         Gdiplus::GdiplusShutdown(gdiplusToken);
         SelectObject(hdcMemDC, hbmOld);
@@ -741,7 +740,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        // ControliniPath 초기화 추가
+        // Initiate ControliniPath
         SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, ControliniPath);
         PathAppendA(ControliniPath, (char*)"2EZ.ini");
 
