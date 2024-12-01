@@ -18,7 +18,7 @@
 using namespace std;
 
 // Serial communication related constants
-const DWORD BAUD_RATE = CBR_4800;
+const DWORD BAUD_RATE = CBR_2400;
 const DWORD SERIAL_TIMEOUT = 50;
 const size_t MAX_COMMAND_LENGTH = 3;  // "0\n" or "1\n"
 const DWORD RECONNECT_DELAY = 1000;   // Reconnection wait time (ms)
@@ -51,7 +51,7 @@ private:
             return false;
         }
 
-        dcbSerialParams.BaudRate = 4800;
+        dcbSerialParams.BaudRate = 2400;
         dcbSerialParams.ByteSize = 8;
         dcbSerialParams.StopBits = ONESTOPBIT;
         dcbSerialParams.Parity = NOPARITY;
@@ -93,7 +93,7 @@ private:
             return false;
         }
 
-        dcbTestParams.BaudRate = 4800;
+        dcbTestParams.BaudRate = 2400;
         dcbTestParams.ByteSize = 8;
         dcbTestParams.StopBits = ONESTOPBIT;
         dcbTestParams.Parity = NOPARITY;
@@ -222,7 +222,7 @@ public:
                 DCB dcbParams = { 0 };
                 dcbParams.DCBlength = sizeof(dcbParams);
                 GetCommState(testHandle, &dcbParams);
-                dcbParams.BaudRate = 4800;
+                dcbParams.BaudRate = 2400;
                 dcbParams.ByteSize = 8;
                 dcbParams.StopBits = ONESTOPBIT;
                 dcbParams.Parity = NOPARITY;
@@ -302,11 +302,18 @@ UINT8 getAnalogInput(int player) {
 // Neon status handling function
 void HandleNeonOutput(UINT8 lightPattern) {
     static bool lastNeonState = false;
-    bool currentNeonState = !(lightPattern & 0x10); // 0 is ON, 1 is OFF
+    static unsigned long lastStateChangeTime = 0;
+    bool currentNeonState = !(lightPattern & 0x10);
+    unsigned long currentTime = GetTickCount64();
 
     if (currentNeonState != lastNeonState) {
-        arduinoController.SendCommand(currentNeonState ? '0' : '1');
+        arduinoController.SendCommand(currentNeonState ? '1' : '0');
+        lastStateChangeTime = currentTime;
         lastNeonState = currentNeonState;
+    }
+    else if (currentTime - lastStateChangeTime > 300) {  // If the same state persists for more than 0.3 seconds
+        arduinoController.SendCommand('0');  // Relay off
+        lastStateChangeTime = currentTime;
     }
 }
 
