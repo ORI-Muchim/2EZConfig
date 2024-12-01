@@ -18,7 +18,7 @@
 using namespace std;
 
 // Serial communication related constants
-const DWORD BAUD_RATE = CBR_2400;
+const DWORD BAUD_RATE = CBR_600;
 const DWORD SERIAL_TIMEOUT = 50;
 const size_t MAX_COMMAND_LENGTH = 3;  // "0\n" or "1\n"
 const DWORD RECONNECT_DELAY = 1000;   // Reconnection wait time (ms)
@@ -51,7 +51,7 @@ private:
             return false;
         }
 
-        dcbSerialParams.BaudRate = 2400;
+        dcbSerialParams.BaudRate = 600;
         dcbSerialParams.ByteSize = 8;
         dcbSerialParams.StopBits = ONESTOPBIT;
         dcbSerialParams.Parity = NOPARITY;
@@ -93,7 +93,7 @@ private:
             return false;
         }
 
-        dcbTestParams.BaudRate = 2400;
+        dcbTestParams.BaudRate = 600;
         dcbTestParams.ByteSize = 8;
         dcbTestParams.StopBits = ONESTOPBIT;
         dcbTestParams.Parity = NOPARITY;
@@ -222,7 +222,7 @@ public:
                 DCB dcbParams = { 0 };
                 dcbParams.DCBlength = sizeof(dcbParams);
                 GetCommState(testHandle, &dcbParams);
-                dcbParams.BaudRate = 2400;
+                dcbParams.BaudRate = 600;
                 dcbParams.ByteSize = 8;
                 dcbParams.StopBits = ONESTOPBIT;
                 dcbParams.Parity = NOPARITY;
@@ -311,7 +311,7 @@ void HandleNeonOutput(UINT8 lightPattern) {
         lastStateChangeTime = currentTime;
         lastNeonState = currentNeonState;
     }
-    else if (currentTime - lastStateChangeTime > 300) {  // If the same state persists for more than 0.3 seconds
+    else if (currentTime - lastStateChangeTime > 250) {  // If the same state persists for more than 0.25 seconds
         arduinoController.SendCommand('0');  // Relay off
         lastStateChangeTime = currentTime;
     }
