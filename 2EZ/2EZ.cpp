@@ -304,7 +304,7 @@ void HandleNeonOutput(UINT8 lightPattern) {
     static bool lastNeonState = false;
     static unsigned long lastStateChangeTime = 0;
     bool currentNeonState = !(lightPattern & 0x10);
-    unsigned long currentTime = GetTickCount64();
+    unsigned long currentTime = GetTickCount();
 
     if (currentNeonState != lastNeonState) {
         arduinoController.SendCommand(currentNeonState ? '1' : '0');
