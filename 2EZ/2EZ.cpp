@@ -312,7 +312,7 @@ void HandleNeonOutput(UINT8 lightPattern) {
         lastStateChangeTime = currentTime;
         lastNeonState = currentNeonState;
     }
-    else if (currentTime - lastStateChangeTime > 250) {  // If the same state persists for more than 0.25 seconds
+    else if (currentTime - lastStateChangeTime > 200) {  // If the same state persists for more than 0.2 seconds
         arduinoController.SendCommand('0');  // Relay off
         lastStateChangeTime = currentTime;
     }
