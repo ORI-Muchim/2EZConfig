@@ -307,7 +307,8 @@ void HandleNeonOutput(UINT8 lightPattern) {
     unsigned long currentTime = GetTickCount();
 
     if (currentNeonState != lastNeonState) {
-        arduinoController.SendCommand(currentNeonState ? '1' : '0');
+        arduinoController.SendCommand(currentNeonState ? '1' : '0'); // I intentionally designed the neon to be reversed.
+                                                                     // If you want the neon to be reversed, change the position of the '1' and '0'. 
         lastStateChangeTime = currentTime;
         lastNeonState = currentNeonState;
     }
