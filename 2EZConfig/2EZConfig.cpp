@@ -771,42 +771,6 @@ void buttonsWindow() {
             // Create a full path
             char fullPath[512];
             sprintf_s(fullPath, "Screenshots\\%s", filename);
-
-            // Save screenshot
-            HWND gameWindow = FindWindowA(NULL, "EZ2AC");
-            if (gameWindow) {
-                HDC hdcWindow = GetDC(gameWindow);
-                HDC hdcMemDC = CreateCompatibleDC(hdcWindow);
-
-                RECT windowRect;
-                GetClientRect(gameWindow, &windowRect);
-                int width = windowRect.right - windowRect.left;
-                int height = windowRect.bottom - windowRect.top;
-
-                HBITMAP hbmScreen = CreateCompatibleBitmap(hdcWindow, width, height);
-                HBITMAP hbmOld = (HBITMAP)SelectObject(hdcMemDC, hbmScreen);
-
-                BitBlt(hdcMemDC, 0, 0, width, height, hdcWindow, 0, 0, SRCCOPY);
-
-                // bmp to png
-                Gdiplus::GdiplusStartupInput gdiplusStartupInput;
-                ULONG_PTR gdiplusToken;
-                Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
-
-                CLSID pngClsid;
-                GetEncoderClsid(L"image/png", &pngClsid);
-
-                Gdiplus::Bitmap* bitmap = new Gdiplus::Bitmap(hbmScreen, NULL);
-                bitmap->Save(str2wstr(fullPath).c_str(), &pngClsid);
-
-                delete bitmap;
-                Gdiplus::GdiplusShutdown(gdiplusToken);
-
-                SelectObject(hdcMemDC, hbmOld);
-                DeleteObject(hbmScreen);
-                DeleteDC(hdcMemDC);
-                ReleaseDC(gameWindow, hdcWindow);
-            }
         }
         else {
             ImGui::Text("Screenshot");
