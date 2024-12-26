@@ -1,24 +1,21 @@
-const int RELAY_PIN = 7;  // Relay pin number
+const uint8_t RELAY_PIN = 7;  // Using uint8_t is more memory efficient for pin numbers
 
 void setup() {
   Serial.begin(600);
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);  // Initialize relay to off
+  digitalWrite(RELAY_PIN, LOW);
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    char command = Serial.read();
-    if (command == '0') {
-      digitalWrite(RELAY_PIN, LOW);
+  if (Serial.available()) {  // No need to compare with > 0
+    switch(Serial.read()) {  // Switch is more efficient than if-else
+      case '0':
+        digitalWrite(RELAY_PIN, LOW);
+        break;
+      case '1':
+        digitalWrite(RELAY_PIN, HIGH);
+        break;
     }
-    else if (command == '1') {
-      digitalWrite(RELAY_PIN, HIGH);
-    }
-    
-    // Clear the serial buffer
-    while(Serial.available() > 0) {
-      Serial.read();
-    }
+    Serial.flush();  // More efficient than manual buffer clearing
   }
 }
