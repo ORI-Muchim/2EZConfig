@@ -1,7 +1,7 @@
 const uint8_t RELAY_PIN = 7;  // Using uint8_t is more memory efficient for pin numbers
 
 void setup() {
-  Serial.begin(600);
+  Serial.begin(9600);
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, LOW);
 }

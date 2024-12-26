@@ -18,7 +18,7 @@
 using namespace std;
 
 // Serial communication related constants
-const DWORD BAUD_RATE = CBR_600;
+const DWORD BAUD_RATE = CBR_9600;
 const DWORD SERIAL_TIMEOUT = 50;
 const size_t MAX_COMMAND_LENGTH = 3;  // "0\n" or "1\n"
 const DWORD RECONNECT_DELAY = 1000;   // Reconnection wait time (ms)
@@ -51,7 +51,7 @@ private:
             return false;
         }
 
-        dcbSerialParams.BaudRate = 600;
+        dcbSerialParams.BaudRate = 9600;
         dcbSerialParams.ByteSize = 8;
         dcbSerialParams.StopBits = ONESTOPBIT;
         dcbSerialParams.Parity = NOPARITY;
@@ -93,7 +93,7 @@ private:
             return false;
         }
 
-        dcbTestParams.BaudRate = 600;
+        dcbTestParams.BaudRate = 9600;
         dcbTestParams.ByteSize = 8;
         dcbTestParams.StopBits = ONESTOPBIT;
         dcbTestParams.Parity = NOPARITY;
@@ -222,7 +222,7 @@ public:
                 DCB dcbParams = { 0 };
                 dcbParams.DCBlength = sizeof(dcbParams);
                 GetCommState(testHandle, &dcbParams);
-                dcbParams.BaudRate = 600;
+                dcbParams.BaudRate = 9600;
                 dcbParams.ByteSize = 8;
                 dcbParams.StopBits = ONESTOPBIT;
                 dcbParams.Parity = NOPARITY;
@@ -307,8 +307,8 @@ void HandleNeonOutput(UINT8 lightPattern) {
     unsigned long currentTime = GetTickCount();
 
     if (currentNeonState != lastNeonState) {
-        arduinoController.SendCommand(currentNeonState ? '0' : '1'); // I intentionally designed the neon to be reversed.
-                                                                     // If you want the neon to be reversed, change the position of the '1' and '0'. 
+        arduinoController.SendCommand(currentNeonState ? '0' : '1');  // If you want the neon to be reversed, change the position of the '1' and '0'. 
+
         lastStateChangeTime = currentTime;
         lastNeonState = currentNeonState;
     }
