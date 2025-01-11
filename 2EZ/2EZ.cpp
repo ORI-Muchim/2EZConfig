@@ -34,6 +34,17 @@ djGame currGame;
 LPCSTR config = ".\\2EZ.ini";
 char ControliniPath[MAX_PATH];
 
+// We count the consecutive write failures and only reconnect after a certain threshold.
+#include <atomic>   // for std::atomic
+#include <string>   // for std::string
+
+// Define the maximum number of consecutive errors before reconnect
+constexpr int MAX_CONSECUTIVE_ERRORS = 5;
+// Atomic counters for consecutive errors
+std::atomic_int g_consecutiveErrors(0);
+// Flag to request a reconnect if we exceed the threshold
+std::atomic_bool g_reconnectRequested(false);
+
 // Class for managing serial communication status
 class ArduinoController {
 private:
@@ -142,6 +153,18 @@ public:
         }
     }
 
+    // Additional method to close the port safely.
+    void ClosePort() {
+        if (hSerial != INVALID_HANDLE_VALUE) {
+            // Turn off relay just in case
+            SendCommand('0');
+            CloseHandle(hSerial);
+            hSerial = INVALID_HANDLE_VALUE;
+        }
+        isInitialized = false;
+        lastCommand = 0;
+    }
+
     bool SendCommand(char command) {
         if (!isInitialized || hSerial == INVALID_HANDLE_VALUE) {
             return false;
@@ -168,21 +191,15 @@ public:
         BOOL result = WriteFile(hSerial, cmdBuffer, strlen(cmdBuffer), &bytesWritten, &osWriter);
 
         if (!result && GetLastError() == ERROR_IO_PENDING) {
-            // Waiting for asynchronous tasks to complete with shorter timeout
-            DWORD waitResult = WaitForSingleObject(osWriter.hEvent, 100);  // reduce timeout to 100ms
+            // Waiting for asynchronous tasks to complete with a certain timeout
+            DWORD waitResult = WaitForSingleObject(osWriter.hEvent, 2000);  // Extended to 2000ms
             if (waitResult == WAIT_OBJECT_0) {
                 GetOverlappedResult(hSerial, &osWriter, &bytesWritten, FALSE);
                 result = (bytesWritten == strlen(cmdBuffer));
             }
             else {
+                // Timeout or WAIT_FAILED
                 result = FALSE;
-                // Reset the serial connection if timeout occurs
-                if (hSerial != INVALID_HANDLE_VALUE) {
-                    CloseHandle(hSerial);
-                    hSerial = INVALID_HANDLE_VALUE;
-                    isInitialized = false;
-                    Initialize();
-                }
             }
         }
 
@@ -191,10 +208,20 @@ public:
         if (result) {
             lastCommand = command;
             FlushFileBuffers(hSerial);  // Ensure data is written
+            // Reset the consecutive error count on success
+            g_consecutiveErrors.store(0);
             return true;
         }
-
-        return false;
+        else {
+            // If write failed, do not close the handle immediately.
+            // Instead, increment the consecutive error count.
+            int currentErrCount = g_consecutiveErrors.fetch_add(1) + 1;
+            if (currentErrCount >= MAX_CONSECUTIVE_ERRORS) {
+                // If we exceed threshold, set the reconnect request flag.
+                g_reconnectRequested.store(true);
+            }
+            return false;
+        }
     }
 
     bool Initialize() {
@@ -307,7 +334,7 @@ void HandleNeonOutput(UINT8 lightPattern) {
     unsigned long currentTime = GetTickCount();
 
     if (currentNeonState != lastNeonState) {
-        arduinoController.SendCommand(currentNeonState ? '1' : '0');  // If you want the neon to be reversed, change the position of the '1' and '0'. 
+        arduinoController.SendCommand(currentNeonState ? '0' : '1');  // If you want the neon to be reversed, change the position of the '1' and '0'. 
 
         lastStateChangeTime = currentTime;
         lastNeonState = currentNeonState;
@@ -586,7 +613,7 @@ void TakeScreenshot() {
 DWORD WINAPI alternateInputThread(void* data) {
     // Get screenshot key binding
     int screenshotKey = GetPrivateProfileIntA("Screenshot", "Binding", NULL, ControliniPath);
-    
+
     bool autoPlayButtonState = false;
     uintptr_t apOffset = 0;
 
@@ -625,6 +652,38 @@ DWORD WINAPI alternateInputThread(void* data) {
     return 0;
 }
 
+// ==============================================================================
+// ReconnectThread: checks g_consecutiveErrors and g_reconnectRequested
+//                  to reconnect only when necessary
+// ==============================================================================
+DWORD WINAPI ReconnectThread(LPVOID data) {
+    ArduinoController* pController = reinterpret_cast<ArduinoController*>(data);
+
+    while (true) {
+        // Sleep 1 second between checks
+        Sleep(1000);
+
+        int errorCount = g_consecutiveErrors.load();
+        if (g_reconnectRequested.load() || errorCount >= MAX_CONSECUTIVE_ERRORS) {
+            // If the port is initialized, close it before re-initializing
+            if (pController->IsInitialized()) {
+                pController->ClosePort();
+            }
+
+            bool success = pController->Initialize();
+            if (success) {
+                // Reset the counters and flags on success
+                g_consecutiveErrors.store(0);
+                g_reconnectRequested.store(false);
+            }
+            else {
+                // If it fails again, we simply wait for the next iteration
+            }
+        }
+    }
+    return 0;
+}
+
 DWORD PatchThread() {
     // Get Game config file
     HANDLE ez2Proc = GetCurrentProcess();
@@ -634,7 +693,7 @@ DWORD PatchThread() {
     SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, ControliniPath);
     PathAppendA(ControliniPath, (char*)"2EZ.ini");
 
-    // Short sleep to fix crash when using legitimate data with dongle, can be overriden in ini if causing issues.
+    // Short sleep to fix crash when using legitimate data with dongle, can be overiden in ini if causing issues.
     Sleep(GetPrivateProfileIntA("Settings", "ShimDelay", 10, config));
 
     // re-enable keyboard if playing FNEX - do this before any delays
@@ -686,8 +745,6 @@ DWORD PatchThread() {
 
     // auto play key
     apKey = GetPrivateProfileIntA("Autoplay", "Binding", VK_F11, ControliniPath);
-
-    // PATCHING SECTION
 
     // Some of the games (ie final) take a while to initialise and will crash or clear out the bindings unless delayed
     // Doesnt cause any issues so i just set this globally on all games, can be overidden in .ini if needed.
@@ -766,6 +823,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         if (!arduinoController.Initialize()) {
             // Handle initialization failure (if needed)
         }
+
+        // Create a separate thread to handle reconnection logic
+        CreateThread(0, 0, (LPTHREAD_START_ROUTINE)ReconnectThread, &arduinoController, 0, 0);
+
         CreateThread(0, 0, (LPTHREAD_START_ROUTINE)PatchThread, 0, 0, 0);
         break;
 
