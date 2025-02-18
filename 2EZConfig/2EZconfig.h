@@ -1,13 +1,16 @@
 #pragma once
+#define IMGUI_DISABLE_SSE2
+#define OPENSSL_NO_ASM
 
 #include <openssl/md5.h>
 #include <Windows.h>
-#include "imgui_impl_glfw.h"
 #include <stdio.h>
 
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+
 namespace EZConfig {
-    int RenderUI(GLFWwindow* window);
-    int sixthBackgroundLoop(char * launcherName);
+    int RenderUI();
+    int sixthBackgroundLoop(char* launcherName);
 
     const LPCSTR ConfigIniPath = ".\\2EZ.ini";
 
@@ -130,5 +133,3 @@ namespace EZConfig {
 
     static const char* VisualSettings[] = { "Default", "Black Panel", "BGA Off" };
 }
-
-

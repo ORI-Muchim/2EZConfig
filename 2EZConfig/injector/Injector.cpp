@@ -1,3 +1,6 @@
+#define IMGUI_DISABLE_SSE2
+#define OPENSSL_NO_ASM
+
 #define _WIN32_WINNT_WINXP
 #include <stdio.h>
 #include <windows.h>

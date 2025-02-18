@@ -1,4 +1,8 @@
 #pragma once
+
+#define IMGUI_DISABLE_SSE2
+#define OPENSSL_NO_ASM
+
 #include <string>
 namespace input {
 

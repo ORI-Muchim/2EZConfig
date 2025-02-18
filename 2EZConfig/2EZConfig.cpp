@@ -7,208 +7,129 @@
 #include "inputManager/device.h"
 #include "inputManager/input.h"
 #include <dirent.h>
-
-//externals
-#include <openssl/md5.h>
-
-//imgui
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl2.h"
-#include <GLFW/glfw3.h>
+#include <conio.h>
+#include <iomanip>
 #include <ShlObj.h>
 #include <Shlwapi.h>
 
-#include <gdiplus.h>
-#pragma comment(lib, "gdiplus.lib")
-#include <ctime>
-
-// GDI+ Encoder CLSID Get Function
-int GetEncoderClsid(const WCHAR* format, CLSID* pClsid) {
-    UINT num = 0;
-    UINT size = 0;
-
-    Gdiplus::ImageCodecInfo* pImageCodecInfo = NULL;
-
-    Gdiplus::GetImageEncodersSize(&num, &size);
-    if (size == 0)
-        return -1;
-
-    pImageCodecInfo = (Gdiplus::ImageCodecInfo*)(malloc(size));
-    if (pImageCodecInfo == NULL)
-        return -1;
-
-    Gdiplus::GetImageEncoders(num, size, pImageCodecInfo);
-
-    for (UINT j = 0; j < num; ++j) {
-        if (wcscmp(pImageCodecInfo[j].MimeType, format) == 0) {
-            *pClsid = pImageCodecInfo[j].Clsid;
-            free(pImageCodecInfo);
-            return j;
-        }
-    }
-
-    free(pImageCodecInfo);
-    return -1;
-}
-
-// String to wstring
-std::wstring str2wstr(const std::string& str) {
-    int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
-    std::wstring wstrTo(size_needed, 0);
-    MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
-    return wstrTo;
-}
-
 using namespace EZConfig;
 
-void settingsWindow();
-void analogsWindow();
-void buttonsWindow();
-void lightsWindow();
-void HelpMarker(const char* desc);
+// Function declarations
+void showMainMenu();
+void showSettingsMenu();
+void showButtonsMenu();
+void showAnalogsMenu();
+void showLightsMenu();
 int detectGameVersion();
+void clearScreen();
+void printHeader();
+void waitForKeyPress();
 
 LPSTR ControliniPath;
 
-
-int EZConfig::RenderUI(GLFWwindow* window) {
-
-    static bool use_work_area = true;
-    static ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
-
-    // We demonstrate using the full viewport area or the work area (without menu-bars, task-bars etc.)
-    // Based on your use case you may want one of the other.
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(use_work_area ? viewport->WorkPos : viewport->Pos);
-    ImGui::SetNextWindowSize(use_work_area ? viewport->WorkSize : viewport->Size);
-
-    char exeName[255];
-    GetPrivateProfileStringA("Settings", "EXEName", "EZ2AC.exe", exeName, sizeof(exeName), ConfigIniPath);
-
-    if (ImGui::Begin("Menu", (bool*)true, flags))
-    {
-        ImGui::Text("R U READY 2 GO INSIDA DJ BOX?");
-        ImGui::SameLine(ImGui::GetWindowWidth() - 80);
-        if (ImGui::Button("Play EZ2!"))
-        {
-            if (fileExists(exeName)) {
-                int GameVer = GetPrivateProfileIntA("Settings", "GameVer", -1, ConfigIniPath);
-                if (strcmp(djGames[GameVer].name, "6th Trax ~Self Evolution~") == 0) {
-                    glfwDestroyWindow(window);
-                    glfwTerminate();
-                    return sixthBackgroundLoop(exeName);
-                }
-                else if (Injector::Inject(exeName)) {
-                    //close
-                    return 0;
-                }
-            }
-            else {
-                ImGui::OpenPopup("EXE Error");
-
-            }
-        }
-
-
-        //Selector Tabs
-        ImGui::Separator();
-        if (ImGui::BeginTabBar("##Tabs", ImGuiTabBarFlags_None))
-        {
-            //Begin settings tab
-            if (ImGui::BeginTabItem("Settings"))
-            {
-                settingsWindow();
-                ImGui::EndTabItem();
-            }
-
-            //Begin Buttons Tab
-            if (ImGui::BeginTabItem("Buttons"))
-            {
-                buttonsWindow();
-                ImGui::EndTabItem();
-            }
-
-            //Begin Analogs Tab
-            if (ImGui::BeginTabItem("Analogs"))
-            {
-                analogsWindow();
-                ImGui::EndTabItem();
-            }
-
-            //Begin Lights Tab
-            if (ImGui::BeginTabItem("Lights"))
-            {
-                lightsWindow();
-                ImGui::EndTabItem();
-            }
-
-            ImGui::EndTabBar();
-        }
+int EZConfig::RenderUI() {
+    while (true) {
+        showMainMenu();
+        Sleep(100);
     }
-
-
-    if (ImGui::BeginPopupModal("EXE Error", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-    {
-        ImGui::Text("%s Could not be found", exeName);
-        if (ImGui::Button("Close")) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
-
-    ImGui::Text("");
-    ImGui::SameLine(ImGui::GetWindowWidth() - 400);
-
-    float windowWidth = ImGui::GetWindowWidth();
-    float textWidth = ImGui::CalcTextSize("Thanks to DJKero & kasaski / Modified ORI-Muchim - 2024").x;
-    float textPosX = (windowWidth - textWidth) * 0.5f;
-
-    ImGui::SetCursorPosX(textPosX);
-    ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 0.8f), "Thanks to DJKero & kasaski / Modified ORI-Muchim - 2024");    ImGui::End();
-    return 1;
+    return 0;
 }
 
-//Sixth trax uses a launcher for booting and then switching between 6th and remember 1st
-//they are technically 2 different games, with the launcher handling the handover between the two
-//The launcher, 6th, and remeber1st need to be rehooked each time the games are switched.
 int EZConfig::sixthBackgroundLoop(char* launcherName) {
     RedirectIOToConsole();
     bool inSixth = false;
-    //6th's launcher name should be anything but EZ2DJ.exe, as remember1st exe needs to be set that, 
-    //and the hook will conflict if they are both the same
-    printf("lauching 6th loop\n");
+    printf("launching 6th loop\n");
     Injector::Inject(launcherName);
+
     while (true) {
-        //both these names should never changes, the 6th trax launcher exe requires these names to function
         if (!inSixth) {
             if (Injector::InjectWithName("EZ2DJ6th.exe")) {
                 inSixth = true;
                 printf("Found 6th\n");
             }
-
         }
         else {
             if (Injector::InjectWithName("Ez2DJ.exe")) {
-                //Injector::InjectWithName(launcherName);
                 inSixth = false;
                 printf("Found 1st\n");
             }
         }
-
+        Sleep(100);
     }
-
     return 0;
 }
 
+void clearScreen() {
+    system("cls");
+}
 
-void settingsWindow() {
+void printHeader() {
+    std::cout << "====================================\n";
+    std::cout << "        2EZ Configuration Tool      \n";
+    std::cout << "====================================\n\n";
+}
+
+void waitForKeyPress() {
+    std::cout << "\nPress any key to continue...";
+    _getch();
+}
+
+void showMainMenu() {
+    clearScreen();
+    printHeader();
+
+    char exeName[255];
+    GetPrivateProfileStringA("Settings", "EXEName", "EZ2AC.exe", exeName, sizeof(exeName), ConfigIniPath);
+
+    std::cout << "1. Settings\n";
+    std::cout << "2. Buttons Configuration\n";
+    std::cout << "3. Analogs Configuration\n";
+    std::cout << "4. Lights Configuration\n";
+    std::cout << "5. Launch Game\n";
+    std::cout << "6. Exit\n\n";
+    std::cout << "Select an option (1-6): ";
+
+    char choice = _getch();
+    switch (choice) {
+    case '1':
+        showSettingsMenu();
+        break;
+    case '2':
+        showButtonsMenu();
+        break;
+    case '3':
+        showAnalogsMenu();
+        break;
+    case '4':
+        showLightsMenu();
+        break;
+    case '5':
+        if (fileExists(exeName)) {
+            int GameVer = GetPrivateProfileIntA("Settings", "GameVer", -1, ConfigIniPath);
+            if (strcmp(djGames[GameVer].name, "6th Trax ~Self Evolution~") == 0) {
+                sixthBackgroundLoop(exeName);
+            }
+            else {
+                Injector::Inject(exeName);
+            }
+        }
+        else {
+            std::cout << "\nError: " << exeName << " not found!\n";
+            waitForKeyPress();
+        }
+        break;
+    case '6':
+        exit(0);
+    }
+}
+
+void showSettingsMenu() {
+    clearScreen();
+    printHeader();
 
     char buff[30];
     char exeName[255];
 
-    //Get game version currently set, if not set try to detect game
     int GameVer = GetPrivateProfileIntA("Settings", "GameVer", -1, ConfigIniPath);
     if (GameVer < 0) {
         GameVer = detectGameVersion();
@@ -222,687 +143,215 @@ void settingsWindow() {
     bool modeFreeze = GetPrivateProfileIntA("Settings", "ModeSelectTimerFreeze", 0, ConfigIniPath);
     bool songFreeze = GetPrivateProfileIntA("Settings", "SongSelectTimerFreeze", 0, ConfigIniPath);
     bool enableNoteJudgment = GetPrivateProfileIntA("Settings", "JudgmentDelta", 0, ConfigIniPath);
-
-    // EVOLVE settings
     bool evWin10Fix = GetPrivateProfileIntA("Settings", "EvWin10Fix", 0, ConfigIniPath);
 
-    //Stage Lock Settings
-    bool stageLock = GetPrivateProfileIntA("StageLock", "Enabled", 0, ConfigIniPath);
-    bool noGameOver = GetPrivateProfileIntA("StageLock", "noGameOver", 1, ConfigIniPath);
-    bool noFail = GetPrivateProfileIntA("StageLock", "noFail", 0, ConfigIniPath);
+    std::cout << "Settings Menu\n";
+    std::cout << "-------------\n\n";
 
-    //Setting Save Patch for final, wont bother with this again for any other games
-    bool saveSettings = GetPrivateProfileIntA("KeepSettings", "Enabled", 0, ConfigIniPath);
-    bool random = GetPrivateProfileIntA("KeepSettings", "Random", 1, ConfigIniPath);
-    bool note = GetPrivateProfileIntA("KeepSettings", "Note", 1, ConfigIniPath);
-    bool autoScratchPedal = GetPrivateProfileIntA("KeepSettings", "Auto", 1, ConfigIniPath);
-    bool fade = GetPrivateProfileIntA("KeepSettings", "Fade", 1, ConfigIniPath);
-    bool scroll = GetPrivateProfileIntA("KeepSettings", "Scroll", 1, ConfigIniPath);
-    bool visual = GetPrivateProfileIntA("KeepSettings", "Visual", 1, ConfigIniPath);
-    bool panel = GetPrivateProfileIntA("KeepSettings", "Panel", 1, ConfigIniPath);
-    int defaultNote = GetPrivateProfileIntA("KeepSettings", "DefaultNote", 0, ConfigIniPath);
-    int defaultPanel = GetPrivateProfileIntA("KeepSettings", "DefaultPanel", 0, ConfigIniPath);
-    int defaultVisual = GetPrivateProfileIntA("KeepSettings", "DefaultVisual", 0, ConfigIniPath);
+    std::cout << "Current Game Version: " << djGames[GameVer].name << "\n\n";
 
-    int kool = GetPrivateProfileIntA("JudgmentDelta", "Kool", 5, ConfigIniPath);
-    int cool = GetPrivateProfileIntA("JudgmentDelta", "Cool", 5, ConfigIniPath);
-    int good = GetPrivateProfileIntA("JudgmentDelta", "Good", 5, ConfigIniPath);
-    int miss = GetPrivateProfileIntA("JudgmentDelta", "Miss", 5, ConfigIniPath);
-
-    //Begin Settings Window
-    ImGui::BeginChild("Settings", { 0, ImGui::GetWindowHeight() - 85 }, false, ImGuiWindowFlags_HorizontalScrollbar);
-
-
-    //Game version dropdown selector
-    if (ImGui::BeginCombo("Game Version", djGames[GameVer].name))
-    {
-        for (int n = 0; n < IM_ARRAYSIZE(djGames); n++)
-        {
-            bool is_selected = (n == GameVer);
-            if (ImGui::Selectable(djGames[n].name, is_selected)) {
-                GameVer = n;
-            }
-            if (GameVer == n) {
-                ImGui::SetItemDefaultFocus();
-
-            }
-        }
-        ImGui::EndCombo();
-    }
-    WritePrivateProfileString("Settings", "GameVer", _itoa(GameVer, buff, 10), ConfigIniPath);
-
-
-    ImGui::Separator();
-
-    //Override exe name section
-    ImGui::Checkbox("Overide Exucutable Target", &overrideExe);
-    ImGui::SameLine();
-    HelpMarker("Set a custom exucutable target");
-    WritePrivateProfileString("Settings", "OverrideExe", _itoa(overrideExe, buff, 10), ConfigIniPath);
-    if (overrideExe) {
-        ImGui::InputText("Name of EXE", exeName, IM_ARRAYSIZE(exeName));
-        WritePrivateProfileString("Settings", "EXEName", exeName, ConfigIniPath);
-    }
-    else {
-        WritePrivateProfileString("Settings", "EXEName", djGames[GameVer].defaultExeName, ConfigIniPath);
-    }
-
-
-
-    //Input options. IO shim always on by default as 99% of people using this dont own a cab lol
-    ImGui::Separator();
-    ImGui::Text("Input");
-
-    ImGui::Checkbox("Enable I/O Shim", &IOHook);
-    WritePrivateProfileString("Settings", "EnableIOHook", _itoa(IOHook, buff, 10), ConfigIniPath);
-    ImGui::SameLine();
-    HelpMarker("Enable the IO Shim for IO emulation. This also has the extra benifit of enabling the games to run on modern windows.");
-
-
-    //Dev binding checkbox
+    std::cout << "1. Change Game Version\n";
+    std::cout << "2. Toggle EXE Override [" << (overrideExe ? "ON" : "OFF") << "]\n";
+    std::cout << "3. Toggle IO Hook [" << (IOHook ? "ON" : "OFF") << "]\n";
     if (djGames[GameVer].hasDevBindings) {
-        ImGui::Checkbox("Enable Dev Input Binding", &DevControl);
-        WritePrivateProfileString("Settings", "EnableDevControls", _itoa(DevControl, buff, 10), ConfigIniPath);
-        ImGui::SameLine();
-        HelpMarker("This will Enable the keybinding of the dev input.");
+        std::cout << "4. Toggle Dev Controls [" << (DevControl ? "ON" : "OFF") << "]\n";
     }
-
-
-    //if any of these patches exists create new section
-    if (djGames[GameVer].hasSaveSettings || djGames[GameVer].hasModeFreeze || djGames[GameVer].hasSongFreeze) {
-        ImGui::Separator();
-        ImGui::Text("Patches");
-    }
-
-    //Timer freese should probably all be under 1 setting I dont know why ive split them out
-    //Reminder to fix timer unfreezing while selecting song difficulty/changing settings (NT and up) and name entry timer freeze
-
-    //Mode timer freeze
     if (djGames[GameVer].hasModeFreeze) {
-
-        ImGui::Checkbox("Enable Mode Select Timer Freeze", &modeFreeze);
-        ImGui::SameLine();
-        HelpMarker("Pauses the count down timer when selecting a game mode.");
-        WritePrivateProfileString("Settings", "ModeSelectTimerFreeze", _itoa(modeFreeze, buff, 10), ConfigIniPath);
+        std::cout << "5. Toggle Mode Select Timer Freeze [" << (modeFreeze ? "ON" : "OFF") << "]\n";
     }
-
-    //Song timer freeze 
     if (djGames[GameVer].hasSongFreeze) {
-        ImGui::Checkbox("Enable Song Select Timer Freeze", &songFreeze);
-        ImGui::SameLine();
-        HelpMarker("Pauses the count down timer when selecting a song.");
-        WritePrivateProfileString("Settings", "SongSelectTimerFreeze", _itoa(songFreeze, buff, 10), ConfigIniPath);
+        std::cout << "6. Toggle Song Select Timer Freeze [" << (songFreeze ? "ON" : "OFF") << "]\n";
     }
-
-    // New "Enable Note Judgment" option
-    if (djGames[GameVer].hasJudgmentDelta) { // JudgmentDelta
-        ImGui::Checkbox("Enable Note Judgment", &enableNoteJudgment);
-        ImGui::SameLine();
-        HelpMarker("Adjust the note judgment of the song.");
-        WritePrivateProfileString("Settings", "JudgmentDelta", _itoa(enableNoteJudgment, buff, 10), ConfigIniPath);
-
-        if (enableNoteJudgment) {
-            ImGui::Indent(16.0f); // indent
-
-            // Helper lambda for repeated code
-            auto handleInput = [](const char* label, int& value, const char* key) {
-                char buffer[4];
-                sprintf(buffer, "%d", value);
-                ImGui::PushItemWidth(30.0f);
-                if (ImGui::InputText(label, buffer, sizeof(buffer), ImGuiInputTextFlags_CharsDecimal)) {
-                    int newValue = atoi(buffer);
-                    if (newValue < 0) newValue = 0;
-                    if (newValue > 999) newValue = 999;
-                    if (newValue != value) {
-                        value = newValue;
-                        WritePrivateProfileString("JudgmentDelta", key, std::to_string(value).c_str(), ConfigIniPath);
-                    }
-                }
-                ImGui::PopItemWidth();
-            };
-
-            // KOOL
-            handleInput("KOOL", kool, "Kool");
-
-            // COOL
-            handleInput("COOL", cool, "Cool");
-
-            // GOOD
-            handleInput("GOOD", good, "Good");
-
-            // MISS
-            handleInput("MISS", miss, "Miss");
-
-            ImGui::Unindent(16.0f); // unindent
-        }
-    }
-
     if (strcmp(djGames[GameVer].name, "Evolve") == 0) {
-        ImGui::Checkbox("Evolve Win10 Fix", &evWin10Fix);
-        ImGui::SameLine();
-        HelpMarker("Fix for the crash after the warning screen.");
-        WritePrivateProfileString("Settings", "EvWin10Fix", _itoa(evWin10Fix, buff, 10), ConfigIniPath);
+        std::cout << "7. Toggle Win10 Fix [" << (evWin10Fix ? "ON" : "OFF") << "]\n";
     }
+    std::cout << "0. Back to Main Menu\n\n";
 
-    if (djGames[GameVer].hasSaveSettings || djGames[GameVer].hasStageLock) {
-        ImGui::Separator();
-        ImGui::Text("Experimental");
-        ImGui::SameLine();
-        HelpMarker("These patches arent thourougly tested and may cause your game to crash.");
-    }
+    std::cout << "Select an option: ";
 
-    if (djGames[GameVer].hasStageLock) {
-        ImGui::Checkbox("Enable Stage Lock", &stageLock);
-        ImGui::SameLine();
-        HelpMarker("A 'Premium Free' like patch that will stop the credit ending after the 3rd song. You can exit out to title screen by pressing escape to quit your current session.\
-                        By default you are locked to Stage 2 after completing the first stage. ");
-        WritePrivateProfileString("StageLock", "Enabled", _itoa(stageLock, buff, 10), ConfigIniPath);
+    char choice = _getch();
+    switch (choice) {
+    case '1': {
+        clearScreen();
+        printHeader();
+        std::cout << "Available Game Versions:\n\n";
 
-        if (stageLock) {
-            ImGui::Indent(16.0f);
-
-            ImGui::Checkbox("No Game Over", &noGameOver);
-            WritePrivateProfileString("StageLock", "noGameOver", _itoa(noGameOver, buff, 10), ConfigIniPath);
-            ImGui::SameLine();
-            HelpMarker("Failing a song will never result in a game over.");
-
-            ImGui::Checkbox("No Fail out", &noFail);
-            WritePrivateProfileString("StageLock", "noFail", _itoa(noFail, buff, 10), ConfigIniPath);
-            ImGui::SameLine();
-            HelpMarker("You will be locked to Stage 1, where you cannot fail out of a song.");
-
-            ImGui::Unindent(16.0f);
+        for (int i = 0; i < ARRAY_SIZE(djGames); i++) {
+            std::cout << i + 1 << ". " << djGames[i].name << "\n";
         }
-    }
 
-    //Final specific save settings options
-    //I cant be bothered adapting this to other game versions. Its fairly unstabkle anyway.
-    if (djGames[GameVer].hasSaveSettings) {
-        ImGui::Checkbox("Keep Settings Between Credits", &saveSettings);
-        ImGui::SameLine();
-        HelpMarker("Settings will not be reset at the end of a credit on standard modes");
-        WritePrivateProfileString("KeepSettings", "Enabled", _itoa(saveSettings, buff, 10), ConfigIniPath);
+        std::cout << "\nSelect game version (1-" << ARRAY_SIZE(djGames) << "): ";
+        std::string input;
+        std::cin >> input;
+        try {
+            int newVer = std::stoi(input) - 1;
 
-        if (saveSettings) {
-            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Cannot guarantee compatibility with 5key Only, Ruby,");
-            ImGui::TextColored(ImVec4(1, 0, 0, 1), "EZ2Catch and Turntable modes");
-            ImGui::Indent(16.0f);
-            ImGui::Columns(2, "settings", false);
-            ImGui::Checkbox("Random", &random);
-            WritePrivateProfileString("KeepSettings", "Random", _itoa(random, buff, 10), ConfigIniPath);
-
-            ImGui::NextColumn();
-            ImGui::Checkbox("Note Skin", &note);
-            WritePrivateProfileString("KeepSettings", "Note", _itoa(note, buff, 10), ConfigIniPath);
-
-            ImGui::NextColumn();
-            ImGui::Checkbox("Auto Scratch/Pedal", &autoScratchPedal);
-            WritePrivateProfileString("KeepSettings", "Auto", _itoa(autoScratchPedal, buff, 10), ConfigIniPath);
-
-            ImGui::NextColumn();
-            ImGui::Checkbox("Fade Effect", &fade);
-            WritePrivateProfileString("KeepSettings", "Fade", _itoa(fade, buff, 10), ConfigIniPath);
-
-            ImGui::NextColumn();
-            ImGui::Checkbox("Scroll Effect", &scroll);
-            WritePrivateProfileString("KeepSettings", "Scroll", _itoa(scroll, buff, 10), ConfigIniPath);
-
-            ImGui::NextColumn();
-            ImGui::Checkbox("Visual", &visual);
-            WritePrivateProfileString("KeepSettings", "Visual", _itoa(visual, buff, 10), ConfigIniPath);
-
-            ImGui::NextColumn();
-            ImGui::Checkbox("Panel Skin", &panel);
-            WritePrivateProfileString("KeepSettings", "Panel", _itoa(panel, buff, 10), ConfigIniPath);
-
-
-            ImGui::Columns(1, "", false);
-
-            ImGui::Text("Defaults: ");
-            ImGui::SameLine();
-            HelpMarker("These will only be set once at start up. If the settings are changed at anytime they will presist until change again or the game is closed and reopened");
-            ImGui::Columns(2, "", false);
-
-            if (!note) {
-                ImGui::BeginDisabled();
+            if (newVer >= 0 && newVer < ARRAY_SIZE(djGames)) {
+                WritePrivateProfileString("Settings", "GameVer", _itoa(newVer, buff, 10), ConfigIniPath);
+                std::cout << "\nGame version changed to " << djGames[newVer].name << "\n";
             }
-            ImGui::Text("Note Skin:");
-
-            if (ImGui::BeginCombo("##NoteDefault", noteSkins[defaultNote]))
-            {
-                for (int n = 0; n < IM_ARRAYSIZE(noteSkins); n++)
-                {
-                    bool is_selected = (n == defaultNote);
-                    if (ImGui::Selectable(noteSkins[n], is_selected)) {
-                        defaultNote = n;
-                    }
-                    if (defaultNote == n) {
-                        ImGui::SetItemDefaultFocus();
-
-                    }
-                }
-                ImGui::EndCombo();
+            else {
+                std::cout << "\nInvalid selection!\n";
             }
-            if (!note) {
-                ImGui::EndDisabled();
-            }
-            WritePrivateProfileString("KeepSettings", "DefaultNote", _itoa(defaultNote, buff, 10), ConfigIniPath);
-
-
-            if (!panel) {
-                ImGui::BeginDisabled();
-            }
-
-            ImGui::NextColumn();
-            ImGui::Text("Panel Skin:");
-            if (ImGui::BeginCombo("##PanelDefault", panelSkins[defaultPanel]))
-            {
-                for (int n = 0; n < IM_ARRAYSIZE(panelSkins); n++)
-                {
-                    bool is_selected = (n == defaultPanel);
-                    if (ImGui::Selectable(panelSkins[n], is_selected)) {
-                        defaultPanel = n;
-                    }
-                    if (defaultPanel == n) {
-                        ImGui::SetItemDefaultFocus();
-
-                    }
-                }
-                ImGui::EndCombo();
-            }
-            WritePrivateProfileString("KeepSettings", "DefaultPanel", _itoa(defaultPanel, buff, 10), ConfigIniPath);
-
-            if (!panel) {
-                ImGui::EndDisabled();
-            }
-
-            if (!visual) {
-                ImGui::BeginDisabled();
-            }
-            ImGui::NextColumn();
-            ImGui::Text("Visual Setting:");
-            if (ImGui::BeginCombo("##VisualDefault", VisualSettings[defaultVisual]))
-            {
-                for (int n = 0; n < IM_ARRAYSIZE(VisualSettings); n++)
-                {
-                    bool is_selected = (n == defaultPanel);
-                    if (ImGui::Selectable(VisualSettings[n], is_selected)) {
-                        defaultVisual = n;
-                    }
-                    if (defaultVisual == n) {
-                        ImGui::SetItemDefaultFocus();
-                    }
-                }
-                ImGui::EndCombo();
-            }
-            WritePrivateProfileString("KeepSettings", "DefaultVisual", _itoa(defaultVisual, buff, 10), ConfigIniPath);
-            if (!visual) {
-                ImGui::EndDisabled();
-            }
-
-            ImGui::Unindent(16.0f);
-            ImGui::Columns(1);
-
         }
+        catch (std::exception&) {
+            std::cout << "\nInvalid input!\n";
+        }
+        waitForKeyPress();
+        break;
     }
-
-    ImGui::EndChild();
+    case '2':
+        overrideExe = !overrideExe;
+        WritePrivateProfileString("Settings", "OverrideExe", _itoa(overrideExe, buff, 10), ConfigIniPath);
+        if (overrideExe) {
+            std::cout << "\nEnter EXE name: ";
+            std::cin >> exeName;
+            WritePrivateProfileString("Settings", "EXEName", exeName, ConfigIniPath);
+        }
+        else {
+            WritePrivateProfileString("Settings", "EXEName", djGames[GameVer].defaultExeName, ConfigIniPath);
+        }
+        break;
+    case '3':
+        IOHook = !IOHook;
+        WritePrivateProfileString("Settings", "EnableIOHook", _itoa(IOHook, buff, 10), ConfigIniPath);
+        break;
+    case '4':
+        if (djGames[GameVer].hasDevBindings) {
+            DevControl = !DevControl;
+            WritePrivateProfileString("Settings", "EnableDevControls", _itoa(DevControl, buff, 10), ConfigIniPath);
+        }
+        break;
+    case '5':
+        if (djGames[GameVer].hasModeFreeze) {
+            modeFreeze = !modeFreeze;
+            WritePrivateProfileString("Settings", "ModeSelectTimerFreeze", _itoa(modeFreeze, buff, 10), ConfigIniPath);
+        }
+        break;
+    case '6':
+        if (djGames[GameVer].hasSongFreeze) {
+            songFreeze = !songFreeze;
+            WritePrivateProfileString("Settings", "SongSelectTimerFreeze", _itoa(songFreeze, buff, 10), ConfigIniPath);
+        }
+        break;
+    case '7':
+        if (strcmp(djGames[GameVer].name, "Evolve") == 0) {
+            evWin10Fix = !evWin10Fix;
+            WritePrivateProfileString("Settings", "EvWin10Fix", _itoa(evWin10Fix, buff, 10), ConfigIniPath);
+        }
+        break;
+    case '0':
+        return;
+    }
+    showSettingsMenu(); // Refresh menu
 }
 
-void buttonsWindow() {
+void showButtonsMenu() {
+    clearScreen();
+    printHeader();
 
     TCHAR ControliniPath[MAX_PATH];
     SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, ControliniPath);
     PathAppendA(ControliniPath, (char*)"2EZ.ini");
 
-    char buff[10];
-
     input::InitJoysticks();
 
-    ImGui::BeginChild("buttons", { 0, ImGui::GetWindowHeight() - 85 }, false, ImGuiWindowFlags_HorizontalScrollbar);
+    std::cout << "Buttons Configuration\n";
+    std::cout << "--------------------\n\n";
 
-    input::JoystickState joystates[15];
-
-    for (int i = 0; i < 15; i++) {
-        joystates[i] = input::GetJoyState(i);
-    }
-
-    //BEGIN IO BINDING
-    ImGui::Text("IO Input");
-    ImGui::SameLine();
-    HelpMarker("This is the binding for the IO Hook");
-    ImGui::Columns(3, "buttons");
-    ImGui::Text("Button");
-    ImGui::NextColumn();
-    ImGui::Text("Binding");
-    ImGui::NextColumn();
-    ImGui::Text("Action");
-    ImGui::Separator();
-    ImGui::NextColumn();
-
-    for (int i = 0; i < IM_ARRAYSIZE(ioButtons); i++) {
-
+    // Display current button bindings
+    for (int i = 0; i < ARRAY_SIZE(ioButtons); i++) {
         char method[20];
         GetPrivateProfileStringA(ioButtons[i], "Method", "", method, sizeof(method), ControliniPath);
         int id = GetPrivateProfileIntA(ioButtons[i], "JoyID", NULL, ControliniPath);
         int binding = GetPrivateProfileIntA(ioButtons[i], "Binding", NULL, ControliniPath);
+
+        std::cout << i + 1 << ". " << std::left << std::setw(20) << ioButtons[i];
         if (binding != NULL) {
             if (strcmp(method, "Joy") == 0) {
-                if (joystates[id].buttonsPressed & binding && joystates[id].input) {
-                    ImGui::TextColored(ImVec4(1, 0.7f, 0, 1), ioButtons[i]);
+                if (input::GetJoyState(id).input) {
+                    std::cout << "Joy:" << id << " Btn:" << input::getButtonName(binding) << "\n";
                 }
                 else {
-                    ImGui::Text(ioButtons[i]);
-                }
-                ImGui::NextColumn();
-                if (joystates[id].input) {
-                    ImGui::Text("%sID:%d Btn:%s", method, id, input::getButtonName(binding).c_str());
-                }
-                else {
-                    ImGui::Text("Device Removed");
+                    std::cout << "Device Removed\n";
                 }
             }
             else {
-                if (GetAsyncKeyState(binding) & 0x8000) {
-                    ImGui::TextColored(ImVec4(1, 0.7f, 0, 1), ioButtons[i]);
-                }
-                else {
-                    ImGui::Text(ioButtons[i]);
-                }
-
-                ImGui::NextColumn();
-                /*  char name[255];
-                  UINT scanCode = MapVirtualKeyExA(binding, MAPVK_VK_TO_VSC_EX, NULL);
-                  LONG lParamValue = (scanCode << 16);
-                  int result = GetKeyNameTextA(lParamValue, name, 255);*/
-                ImGui::Text("%s:%s", method, GetKeyName(binding).c_str());
+                std::cout << "Key:" << GetKeyName(binding) << "\n";
             }
         }
         else {
-            ImGui::Text(ioButtons[i]);
-            ImGui::NextColumn();
-            ImGui::BeginDisabled();
-            ImGui::Text("None");
-            ImGui::EndDisabled();
+            std::cout << "Not bound\n";
         }
+    }
 
+    std::cout << "\nB: Bind button | C: Clear binding | 0: Back to Main Menu\n";
+    std::cout << "Select an option: ";
 
-        //BINDING CODE THIS IS SHIT I HATE IT
-        ImGui::NextColumn();
-        char buttonLabel[20];
-        sprintf(buttonLabel, "Bind##%d", i);
-        if (ImGui::Button(buttonLabel))
-            ImGui::OpenPopup(ioButtons[i]);
-        if (ImGui::BeginPopupModal(ioButtons[i], NULL, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            ImGui::Text("Press a button to bind it");
-            if (ImGui::Button("Close")) {
-                ImGui::CloseCurrentPopup();
-            }
-            else {
+    char choice = _getch();
+    char buff[10];
+
+    if (choice == 'b' || choice == 'B') {
+        std::cout << "\nEnter button number to bind (1-" << ARRAY_SIZE(ioButtons) << "): ";
+        std::string input;
+        std::cin >> input;
+        int buttonIndex = std::stoi(input) - 1;
+
+        if (buttonIndex >= 0 && buttonIndex < ARRAY_SIZE(ioButtons)) {
+            std::cout << "\nPress the key or button to bind (ESC to cancel)...\n";
+
+            bool bound = false;
+            while (!bound) {
+                // Check joystick input
                 for (int n = 0; n < joyGetNumDevs(); n++) {
                     if (input::GetJoyState(n).input && input::GetJoyState(n).NumPressed == 1) {
-                        WritePrivateProfileString(ioButtons[i], "Method", "Joy", ControliniPath);
-                        WritePrivateProfileString(ioButtons[i], "JoyID", _itoa(n, buff, sizeof(buff)), ControliniPath);
-                        WritePrivateProfileString(ioButtons[i], "Binding", _itoa(input::GetJoyState(n).buttonsPressed, buff, sizeof(buff)), ControliniPath);
-                        ImGui::CloseCurrentPopup();
+                        WritePrivateProfileString(ioButtons[buttonIndex], "Method", "Joy", ControliniPath);
+                        WritePrivateProfileString(ioButtons[buttonIndex], "JoyID", _itoa(n, buff, sizeof(buff)), ControliniPath);
+                        WritePrivateProfileString(ioButtons[buttonIndex], "Binding",
+                            _itoa(input::GetJoyState(n).buttonsPressed, buff, sizeof(buff)), ControliniPath);
+                        bound = true;
+                        break;
                     }
                 }
 
-                // grab current keyboard state
+                // Check keyboard input
                 int key = input::checkKbPressedState();
                 if (key > 0) {
-                    WritePrivateProfileString(ioButtons[i], "Method", "Key", ControliniPath);
-                    WritePrivateProfileString(ioButtons[i], "JoyID", NULL, ControliniPath);
-                    WritePrivateProfileString(ioButtons[i], "Binding", _itoa(key, buff, sizeof(buff)), ControliniPath); \
-                        ImGui::CloseCurrentPopup();
-                }
-
-            }
-            ImGui::EndPopup();
-            //PLEASE SOMEONE REPLCE IT WITH RAWINPUT OF SOMETHING
-        }
-
-        if (binding != NULL) {
-            //Clear Binding
-            ImGui::SameLine();
-            sprintf(buttonLabel, "Clear##%d", i);
-            if (ImGui::Button(buttonLabel)) {
-                WritePrivateProfileString(ioButtons[i], NULL, NULL, ControliniPath);
-            }
-        }
-        ImGui::NextColumn();
-
-    }
-
-
-    ImGui::Columns(1);
-    ImGui::Separator();
-
-
-    //BEGIN Cheeky Extras
-    ImGui::Text("Toggles (Keyboard Only)");
-    ImGui::TextColored(ImVec4(1, 0, 0, 1), "Useable on FNEX, Final, NT, and EC");
-    ImGui::Columns(3, "buttons");
-    ImGui::Separator();
-
-    char method[20];
-    GetPrivateProfileString("Autoplay", "Method", "", method, sizeof(method), ControliniPath);
-    int id = GetPrivateProfileIntA("Autoplay", "JoyID", NULL, ControliniPath);
-    int binding = GetPrivateProfileIntA("Autoplay", "Binding", NULL, ControliniPath);
-    if (binding != NULL) {
-        if (GetAsyncKeyState(binding) & 0x8000) {
-            ImGui::TextColored(ImVec4(1, 0.7f, 0, 1), "Autoplay");
-
-        }
-        else {
-            ImGui::Text("Autoplay");
-        }
-        ImGui::NextColumn();
-        ImGui::Text("%s:%s", method, GetKeyName(binding).c_str());
-    }
-    else {
-        ImGui::Text("Autoplay");
-        ImGui::NextColumn();
-        ImGui::BeginDisabled();
-        ImGui::Text("None");
-        ImGui::EndDisabled();
-    }
-
-
-    //BINDING CODE THIS IS SHIT I HATE IT
-    ImGui::NextColumn();
-    char buttonLabel[20];
-    sprintf(buttonLabel, "Bind##%d", 12 + 100);
-    if (ImGui::Button(buttonLabel))
-        ImGui::OpenPopup("Autoplay");
-    if (ImGui::BeginPopupModal("Autoplay", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-    {
-        ImGui::Text("Press a button to bind it");
-        if (ImGui::Button("Close")) {
-            ImGui::CloseCurrentPopup();
-        }
-        else {
-            // grab current keyboard state
-            int key = input::checkKbPressedState();
-            if (key > 0) {
-                WritePrivateProfileString("Autoplay", "Method", "Key", ControliniPath);
-                WritePrivateProfileString("Autoplay", "JoyID", NULL, ControliniPath);
-                WritePrivateProfileString("Autoplay", "Binding", _itoa(key, buff, sizeof(buff)), ControliniPath);
-                ImGui::CloseCurrentPopup();
-            }
-        }
-        ImGui::EndPopup();
-        //PLEASE SOMEONE REPLCE IT WITH RAWINPUT OF SOMETHING
-    }
-
-    if (binding != NULL) {
-        //Clear Binding
-        ImGui::SameLine();
-        sprintf(buttonLabel, "Clear##%d", "Autoplay" + 100);
-        if (ImGui::Button(buttonLabel)) {
-            WritePrivateProfileString("Autoplay", NULL, NULL, ControliniPath);
-        }
-    }
-
-    ImGui::Columns(1);
-    ImGui::Separator();
-
-    // Screenshot section
-    ImGui::Columns(3, "screenshot");
-
-    // Screenshot key binding
-    GetPrivateProfileString("Screenshot", "Method", "", method, sizeof(method), ControliniPath);
-    binding = GetPrivateProfileIntA("Screenshot", "Binding", NULL, ControliniPath);
-    if (binding != NULL) {
-        if (GetAsyncKeyState(binding) & 0x8000) {
-            ImGui::TextColored(ImVec4(1, 0.7f, 0, 1), "Screenshot");
-            // Take screenshot
-            time_t now = time(0);
-            tm* ltm = localtime(&now);
-            char filename[256];
-            sprintf_s(filename, "Screenshot_%d%02d%02d_%02d%02d%02d.png",
-                1900 + ltm->tm_year, 1 + ltm->tm_mon, ltm->tm_mday,
-                ltm->tm_hour, ltm->tm_min, ltm->tm_sec);
-
-            // Create a screenshot directory
-            CreateDirectoryA("Screenshots", NULL);
-
-            // Create a full path
-            char fullPath[512];
-            sprintf_s(fullPath, "Screenshots\\%s", filename);
-        }
-        else {
-            ImGui::Text("Screenshot");
-        }
-        ImGui::NextColumn();
-        ImGui::Text("%s:%s", method, GetKeyName(binding).c_str());
-    }
-    else {
-        ImGui::Text("Screenshot");
-        ImGui::NextColumn();
-        ImGui::BeginDisabled();
-        ImGui::Text("None");
-        ImGui::EndDisabled();
-    }
-
-    // Binding button
-    ImGui::NextColumn();
-    sprintf(buttonLabel, "Bind##Screenshot");
-    if (ImGui::Button(buttonLabel))
-        ImGui::OpenPopup("Screenshot");
-    if (ImGui::BeginPopupModal("Screenshot", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-    {
-        ImGui::Text("Press a button to bind it");
-        if (ImGui::Button("Close")) {
-            ImGui::CloseCurrentPopup();
-        }
-        else {
-            int key = input::checkKbPressedState();
-            if (key > 0) {
-                WritePrivateProfileString("Screenshot", "Method", "Key", ControliniPath);
-                WritePrivateProfileString("Screenshot", "Binding", _itoa(key, buff, sizeof(buff)), ControliniPath);
-                ImGui::CloseCurrentPopup();
-            }
-        }
-        ImGui::EndPopup();
-    }
-
-    // Clear
-    if (binding != NULL) {
-        ImGui::SameLine();
-        sprintf(buttonLabel, "Clear##Screenshot");
-        if (ImGui::Button(buttonLabel)) {
-            WritePrivateProfileString("Screenshot", NULL, NULL, ControliniPath);
-        }
-    }
-
-    ImGui::Columns(1);
-    ImGui::Separator();
-
-
-    //BEGIN DEV BINDING
-    ImGui::Text("Dev Input (Keyboard Only)");
-    ImGui::SameLine();
-    HelpMarker("Some EZ2 exe's have dev controls, these  bindings will overwrite them");
-    ImGui::TextColored(ImVec4(1, 0, 0, 1), "Unbind or disable dev input binding if intending");
-    ImGui::TextColored(ImVec4(1, 0, 0, 1), "to use Real IO or the IO shim.");
-    ImGui::TextColored(ImVec4(1, 0, 0, 1), "Developer Bindings disable the IO equivelent and this");
-    ImGui::TextColored(ImVec4(1, 0, 0, 1), "behaviour cannot be changed.");
-    ImGui::Columns(3, "buttons");
-    ImGui::Separator();
-
-
-    for (int i = 0; i < IM_ARRAYSIZE(devButtons); i++) {
-
-        char method[20];
-        GetPrivateProfileString(devButtons[i], "Method", "", method, sizeof(method), ControliniPath);
-        int id = GetPrivateProfileIntA(devButtons[i], "JoyID", NULL, ControliniPath);
-        int binding = GetPrivateProfileIntA(devButtons[i], "Binding", NULL, ControliniPath);
-        if (binding != NULL) {
-            if (GetAsyncKeyState(binding) & 0x8000) {
-                ImGui::TextColored(ImVec4(1, 0.7f, 0, 1), devButtonsDisplay[i]);
-
-            }
-            else {
-                ImGui::Text(devButtonsDisplay[i]);
-            }
-            ImGui::NextColumn();
-            ImGui::Text("%s:%s", method, GetKeyName(binding).c_str());
-        }
-        else {
-            ImGui::Text(devButtonsDisplay[i]);
-            ImGui::NextColumn();
-            ImGui::BeginDisabled();
-            ImGui::Text("None");
-            ImGui::EndDisabled();
-        }
-
-
-        //BINDING CODE THIS IS SHIT I HATE IT
-        ImGui::NextColumn();
-        char buttonLabel[20];
-        sprintf(buttonLabel, "Bind##%d", i + 100);
-        if (ImGui::Button(buttonLabel))
-            ImGui::OpenPopup(devButtons[i]);
-        if (ImGui::BeginPopupModal(devButtons[i], NULL, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            ImGui::Text("Press a button to bind it");
-            if (ImGui::Button("Close")) {
-                ImGui::CloseCurrentPopup();
-            }
-            else {
-                // grab current keyboard state
-                int key = input::checkKbPressedState();
-                if (key > 0) {
-                    WritePrivateProfileString(devButtons[i], "Method", "Key", ControliniPath);
-                    WritePrivateProfileString(devButtons[i], "JoyID", NULL, ControliniPath);
-                    WritePrivateProfileString(devButtons[i], "Binding", _itoa(key, buff, sizeof(buff)), ControliniPath);
-                    ImGui::CloseCurrentPopup();
+                    if (key == VK_ESCAPE) {
+                        bound = true;
+                    }
+                    else {
+                        WritePrivateProfileString(ioButtons[buttonIndex], "Method", "Key", ControliniPath);
+                        WritePrivateProfileString(ioButtons[buttonIndex], "JoyID", NULL, ControliniPath);
+                        WritePrivateProfileString(ioButtons[buttonIndex], "Binding", _itoa(key, buff, sizeof(buff)), ControliniPath);
+                        bound = true;
+                    }
                 }
             }
-            ImGui::EndPopup();
-            //PLEASE SOMEONE REPLCE IT WITH RAWINPUT OF SOMETHING
         }
+    }
+    else if (choice == 'c' || choice == 'C') {
+        std::cout << "\nEnter button number to clear (1-" << ARRAY_SIZE(ioButtons) << "): ";
+        std::string input;
+        std::cin >> input;
+        int buttonIndex = std::stoi(input) - 1;
 
-        if (binding != NULL) {
-            //Clear Binding
-            ImGui::SameLine();
-            sprintf(buttonLabel, "Clear##%d", i + 100);
-            if (ImGui::Button(buttonLabel)) {
-                WritePrivateProfileString(devButtons[i], NULL, NULL, ControliniPath);
-            }
+        if (buttonIndex >= 0 && buttonIndex < ARRAY_SIZE(ioButtons)) {
+            WritePrivateProfileString(ioButtons[buttonIndex], NULL, NULL, ControliniPath);
         }
-        ImGui::NextColumn();
-
+    }
+    else if (choice == '0') {
+        input::DestroyJoysticks();
+        return;
     }
 
-    ImGui::Columns(1);
     input::DestroyJoysticks();
-    ImGui::EndChild();
+    showButtonsMenu(); // Refresh menu
 }
 
-void analogsWindow() {
+void showAnalogsMenu() {
+    clearScreen();
+    printHeader();
 
     TCHAR ControliniPath[MAX_PATH];
     SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, ControliniPath);
@@ -910,24 +359,18 @@ void analogsWindow() {
 
     input::InitJoysticks();
 
-    ImGui::BeginChild("analogs", { 0,  ImGui::GetWindowHeight() - 85 }, false, ImGuiWindowFlags_HorizontalScrollbar);
-    ImGui::Columns(3, "analogs");
-    ImGui::Text("Analog");
-    ImGui::NextColumn();
-    ImGui::Text("Binding");
-    ImGui::NextColumn();
-    ImGui::Text("Action");
-    ImGui::Separator();
-    ImGui::NextColumn();
+    std::cout << "Analogs Configuration\n";
+    std::cout << "--------------------\n\n";
 
-    for (int i = 0; i < IM_ARRAYSIZE(analogs); i++) {
+    for (int i = 0; i < ARRAY_SIZE(analogs); i++) {
         int id;
         char axis[20];
         bool reverse = GetPrivateProfileIntA(analogs[i], "Reverse", 0, ControliniPath);
 
-
         id = GetPrivateProfileInt(analogs[i], "JoyID", 16, ControliniPath);
         GetPrivateProfileStringA(analogs[i], "Axis", NULL, axis, sizeof(axis), ControliniPath);
+
+        std::cout << i + 1 << ". " << std::left << std::setw(20) << analogs[i];
 
         float fraction = 0.0f;
         if (id != 16 && input::GetJoyState(id).input) {
@@ -947,129 +390,76 @@ void analogsWindow() {
                 }
                 else {
                     fraction = (float)input::GetJoyState(id).y / (float)255;
-
                 }
             }
+
+            std::cout << "Joy:" << id << " Axis:" << axis << " Value:" << (int)(fraction * 100) << "%\n";
         }
-        ImGui::ProgressBar(fraction, ImVec2(30.0f, 0.0f));
-        ImGui::SameLine();
-        ImGui::Text(analogs[i]);
-
-
-        // Binding Info
-        ImGui::NextColumn();
-
-        char method[20];
-
-
-        if (id < 16) {
-            ImGui::Text("Joy:%d axis:%s", id, axis);
+        else {
+            std::cout << "Not bound\n";
         }
-
-
-        // BINDING CODE THIS IS SHIT I HATE IT
-        ImGui::NextColumn();
-        char buttonLabel[20];
-        sprintf(buttonLabel, "Bind##%d", i);
-        if (ImGui::Button(buttonLabel))
-            ImGui::OpenPopup(analogs[i]);
-        if (ImGui::BeginPopupModal(analogs[i], NULL, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            char formatJoy[20];
-            sprintf(formatJoy, "##%d", i + 1 * 2);
-            char selectedJoy[20];
-            if (id < 16) {
-                sprintf(selectedJoy, "Joystick%d", id);
-
-            }
-            else {
-                sprintf(selectedJoy, "Set Joystick");
-            }
-            if (ImGui::BeginCombo(formatJoy, selectedJoy))
-            {
-                if (ImGui::Selectable("None")) {
-                    char buff[10];
-                    WritePrivateProfileString(analogs[i], "JoyID", _itoa(16, buff, sizeof(buff)), ControliniPath);
-                }
-                for (int n = 0; n < joyGetNumDevs(); n++)
-                {
-                    input::JoystickState joystate = input::GetJoyState(n);
-                    if (joystate.input) {
-                        bool is_selected = (n == id);
-                        sprintf(selectedJoy, "Joystick%d", n);
-                        if (ImGui::Selectable(selectedJoy, is_selected)) {
-                            id = n;
-                            char buff[10];
-                            WritePrivateProfileString(analogs[i], "JoyID", _itoa(n, buff, sizeof(buff)), ControliniPath);
-                        }
-                        if (id == n) {
-                            ImGui::SetItemDefaultFocus();
-                        }
-                    }
-
-
-                }
-                ImGui::EndCombo();
-            }
-            char format[20];
-            char selected[20];
-            sprintf(format, "##%d", i + 1);
-            if (strcmp(axis, "") != 0) {
-                sprintf(selected, "axis: %s", axis);
-            }
-            else {
-                sprintf(selected, "Set Axis");
-            }
-            if (ImGui::BeginCombo(format, selected))
-            {
-
-                if (ImGui::Selectable("Axis: X")) {
-                    char buff[10];
-                    WritePrivateProfileString(analogs[i], "Axis", "X", ControliniPath);
-                }
-
-                if (ImGui::Selectable("Axis: Y")) {
-                    char buff[10];
-                    WritePrivateProfileString(analogs[i], "Axis", "Y", ControliniPath);
-                }
-
-                ImGui::EndCombo();
-            }
-
-            ImGui::Checkbox("Invert Axis", &reverse);
-            char buff[33];
-            WritePrivateProfileString(analogs[i], "Reverse", _itoa(reverse, buff, 10), ControliniPath);
-
-
-            if (ImGui::Button("Close")) {
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
-
-        ImGui::SameLine();
-        if (id < 16) {
-            //Clear Binding
-            ImGui::SameLine();
-            sprintf(buttonLabel, "Clear##%d", i + 100);
-            if (ImGui::Button(buttonLabel)) {
-                WritePrivateProfileString(analogs[i], NULL, NULL, ControliniPath);
-            }
-        }
-        ImGui::NextColumn();
-
     }
 
-    ImGui::Columns(1);
+    std::cout << "\nB: Bind analog | C: Clear binding | 0: Back to Main Menu\n";
+    std::cout << "Select an option: ";
+
+    char choice = _getch();
+    char buff[10];
+
+    if (choice == 'b' || choice == 'B') {
+        std::cout << "\nEnter analog number to bind (1-" << ARRAY_SIZE(analogs) << "): ";
+        std::string input;
+        std::cin >> input;
+        int analogIndex = std::stoi(input) - 1;
+
+        if (analogIndex >= 0 && analogIndex < ARRAY_SIZE(analogs)) {
+            std::cout << "\nSelect joystick number (0-15, or -1 to cancel): ";
+            int joyNum;
+            std::cin >> joyNum;
+
+            if (joyNum >= 0 && joyNum < 16) {
+                WritePrivateProfileString(analogs[analogIndex], "JoyID", _itoa(joyNum, buff, 10), ControliniPath);
+
+                std::cout << "Select axis (X/Y): ";
+                std::string axisInput;
+                std::cin >> axisInput;
+
+                if (axisInput == "X" || axisInput == "x" || axisInput == "Y" || axisInput == "y") {
+                    WritePrivateProfileString(analogs[analogIndex], "Axis", axisInput.c_str(), ControliniPath);
+
+                    std::cout << "Invert axis? (Y/N): ";
+                    char invertChoice = _getch();
+                    bool reverse = (invertChoice == 'Y' || invertChoice == 'y');
+                    WritePrivateProfileString(analogs[analogIndex], "Reverse", _itoa(reverse, buff, 10), ControliniPath);
+                }
+            }
+        }
+    }
+    else if (choice == 'c' || choice == 'C') {
+        std::cout << "\nEnter analog number to clear (1-" << ARRAY_SIZE(analogs) << "): ";
+        std::string input;
+        std::cin >> input;
+        int analogIndex = std::stoi(input) - 1;
+
+        if (analogIndex >= 0 && analogIndex < ARRAY_SIZE(analogs)) {
+            WritePrivateProfileString(analogs[analogIndex], NULL, NULL, ControliniPath);
+        }
+    }
+    else if (choice == '0') {
+        input::DestroyJoysticks();
+        return;
+    }
+
     input::DestroyJoysticks();
-    ImGui::EndChild();
+    showAnalogsMenu(); // Refresh menu
 }
 
-void lightsWindow() {
-    ImGui::BeginChild("lights", { 0, ImGui::GetWindowHeight() - 85 }, false);
+void showLightsMenu() {
+    clearScreen();
+    printHeader();
 
-    ImGui::Text("Arduino Communication Status");
-    ImGui::Separator();
+    std::cout << "Arduino Communication Status\n";
+    std::cout << "--------------------------\n\n";
 
     // Read the debug log file to output COM port information
     FILE* fp;
@@ -1078,13 +468,12 @@ void lightsWindow() {
 
     if (fopen_s(&fp, "debug.log", "r") == 0) {
         while (fgets(line, sizeof(line), fp)) {
-            // Find the line Successfully connected and extract the COM port information
             if (strstr(line, "Successfully connected to COM")) {
                 char* portInfo = strstr(line, "COM");
                 if (portInfo) {
                     found = true;
-                    ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Status: Connected");
-                    ImGui::Text("Port: %.*s", 5, portInfo);
+                    std::cout << "Status: Connected\n";
+                    std::cout << "Port: " << std::string(portInfo, 5) << "\n";
                 }
                 break;
             }
@@ -1093,30 +482,15 @@ void lightsWindow() {
     }
 
     if (!found) {
-        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Status: Not Connected");
-        ImGui::Text("Port: N/A");
+        std::cout << "Status: Not Connected\n";
+        std::cout << "Port: N/A\n\n";
     }
 
-    ImGui::Separator();
-    ImGui::TextWrapped(
-        "Note: Arduino LED Controller is used for EZ2DJ cabinet's neon lights. "
-        "Make sure your Arduino is properly connected and configured."
-    );
+    std::cout << "\nNote: Arduino LED Controller is used for EZ2DJ cabinet's neon lights.\n";
+    std::cout << "Make sure your Arduino is properly connected and configured.\n\n";
 
-    ImGui::EndChild();
-}
-
-void HelpMarker(const char* desc)
-{
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered())
-    {
-        ImGui::BeginTooltip();
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 20.0f);
-        ImGui::TextUnformatted(desc);
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
-    }
+    std::cout << "Press any key to return to main menu...";
+    _getch();
 }
 
 int detectGameVersion() {
@@ -1128,34 +502,28 @@ int detectGameVersion() {
     struct dirent* ent;
     unsigned char result[MD5_DIGEST_LENGTH];
 
-    //get current directory
     GetModuleFileName(NULL, fullPath, MAX_PATH);
     _splitpath(fullPath, driveLetter, directory, NULL, NULL);
     sprintf(FinalPath, "%s%s", driveLetter, directory);
 
-
     if ((dir = opendir(FinalPath)) != NULL) {
-        /* print all the files and directories within directory */
         while ((ent = readdir(dir)) != NULL) {
-
             if (strcmp(ent->d_name, "2EZConfig.exe") == 0 || !hasEnding(toLower(ent->d_name), ".exe")) {
                 printf("Skipping %s\n", ent->d_name);
                 continue;
             }
-            printf("Comapring %s\n", ent->d_name);
+
+            printf("Comparing %s\n", ent->d_name);
 
             FILE* inFile = fopen(ent->d_name, "rb");
             MD5_CTX mdContext;
             int bytes;
             unsigned char data[1024];
 
-
-            //cannot open file, continute to next.
             if (inFile == NULL) {
                 continue;
             }
 
-            //generate file MD5
             MD5_Init(&mdContext);
             while ((bytes = fread(data, 1, 1024, inFile)) != 0) {
                 MD5_Update(&mdContext, data, bytes);
@@ -1163,18 +531,17 @@ int detectGameVersion() {
             MD5_Final(result, &mdContext);
             fclose(inFile);
 
-            //COMPARE WITH KNOWN MD5's and return first match
-            for (int i = 0; i < IM_ARRAYSIZE(djGames); i++) {
+            for (int i = 0; i < ARRAY_SIZE(djGames); i++) {
                 if (memcmp(result, djGames[i].md5, MD5_DIGEST_LENGTH) == 0) {
-                    printf("MD5 Matches: %s", djGames[i].name);
+                    printf("MD5 Matches: %s\n", djGames[i].name);
+                    closedir(dir);
                     return i;
-                };
+                }
             }
-            printf("No Match.. \n");
+            printf("No Match..\n");
         }
         closedir(dir);
     }
 
-    // could not open directory set to n-1
-    return IM_ARRAYSIZE(djGames) - 2;
+    return ARRAY_SIZE(djGames) - 2;
 }

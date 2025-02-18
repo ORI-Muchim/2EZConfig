@@ -1,3 +1,6 @@
+#define IMGUI_DISABLE_SSE2
+#define OPENSSL_NO_ASM
+
 #pragma once
 namespace Injector
 {
