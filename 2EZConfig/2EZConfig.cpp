@@ -107,7 +107,7 @@ int EZConfig::RenderUI(GLFWwindow* window) {
             }
             else {
                 ImGui::OpenPopup("EXE Error");
-                
+
             }
         }
 
@@ -180,7 +180,7 @@ int EZConfig::sixthBackgroundLoop(char* launcherName) {
     //and the hook will conflict if they are both the same
     printf("lauching 6th loop\n");
     Injector::Inject(launcherName);
-    while (true){
+    while (true) {
         //both these names should never changes, the 6th trax launcher exe requires these names to function
         if (!inSixth) {
             if (Injector::InjectWithName("EZ2DJ6th.exe")) {
@@ -196,7 +196,7 @@ int EZConfig::sixthBackgroundLoop(char* launcherName) {
                 printf("Found 1st\n");
             }
         }
-       
+
     }
 
     return 0;
@@ -210,12 +210,12 @@ void settingsWindow() {
 
     //Get game version currently set, if not set try to detect game
     int GameVer = GetPrivateProfileIntA("Settings", "GameVer", -1, ConfigIniPath);
-    if (GameVer < 0 ) {
+    if (GameVer < 0) {
         GameVer = detectGameVersion();
     }
 
     GetPrivateProfileStringA("Settings", "EXEName", "EZ2AC.exe", exeName, sizeof(exeName), ConfigIniPath);
-   
+
     bool overrideExe = GetPrivateProfileIntA("Settings", "OverrideExe", 0, ConfigIniPath);
     bool IOHook = GetPrivateProfileIntA("Settings", "EnableIOHook", 1, ConfigIniPath);
     bool DevControl = GetPrivateProfileIntA("Settings", "EnableDevControls", 0, ConfigIniPath);
@@ -254,16 +254,16 @@ void settingsWindow() {
 
 
     //Game version dropdown selector
-    if (ImGui::BeginCombo("Game Version", djGames[GameVer].name)) 
+    if (ImGui::BeginCombo("Game Version", djGames[GameVer].name))
     {
         for (int n = 0; n < IM_ARRAYSIZE(djGames); n++)
         {
-            bool is_selected = (n == GameVer); 
+            bool is_selected = (n == GameVer);
             if (ImGui::Selectable(djGames[n].name, is_selected)) {
                 GameVer = n;
             }
             if (GameVer == n) {
-                ImGui::SetItemDefaultFocus();  
+                ImGui::SetItemDefaultFocus();
 
             }
         }
@@ -316,7 +316,7 @@ void settingsWindow() {
 
     //Timer freese should probably all be under 1 setting I dont know why ive split them out
     //Reminder to fix timer unfreezing while selecting song difficulty/changing settings (NT and up) and name entry timer freeze
-    
+
     //Mode timer freeze
     if (djGames[GameVer].hasModeFreeze) {
 
@@ -405,7 +405,7 @@ void settingsWindow() {
             WritePrivateProfileString("StageLock", "noGameOver", _itoa(noGameOver, buff, 10), ConfigIniPath);
             ImGui::SameLine();
             HelpMarker("Failing a song will never result in a game over.");
-        
+
             ImGui::Checkbox("No Fail out", &noFail);
             WritePrivateProfileString("StageLock", "noFail", _itoa(noFail, buff, 10), ConfigIniPath);
             ImGui::SameLine();
@@ -468,11 +468,11 @@ void settingsWindow() {
             }
             ImGui::Text("Note Skin:");
 
-            if (ImGui::BeginCombo("##NoteDefault", noteSkins[defaultNote])) 
+            if (ImGui::BeginCombo("##NoteDefault", noteSkins[defaultNote]))
             {
                 for (int n = 0; n < IM_ARRAYSIZE(noteSkins); n++)
                 {
-                    bool is_selected = (n == defaultNote); 
+                    bool is_selected = (n == defaultNote);
                     if (ImGui::Selectable(noteSkins[n], is_selected)) {
                         defaultNote = n;
                     }
@@ -495,16 +495,16 @@ void settingsWindow() {
 
             ImGui::NextColumn();
             ImGui::Text("Panel Skin:");
-            if (ImGui::BeginCombo("##PanelDefault", panelSkins[defaultPanel])) 
+            if (ImGui::BeginCombo("##PanelDefault", panelSkins[defaultPanel]))
             {
                 for (int n = 0; n < IM_ARRAYSIZE(panelSkins); n++)
                 {
-                    bool is_selected = (n == defaultPanel); 
+                    bool is_selected = (n == defaultPanel);
                     if (ImGui::Selectable(panelSkins[n], is_selected)) {
                         defaultPanel = n;
                     }
                     if (defaultPanel == n) {
-                        ImGui::SetItemDefaultFocus();  
+                        ImGui::SetItemDefaultFocus();
 
                     }
                 }
@@ -521,7 +521,7 @@ void settingsWindow() {
             }
             ImGui::NextColumn();
             ImGui::Text("Visual Setting:");
-            if (ImGui::BeginCombo("##VisualDefault", VisualSettings[defaultVisual])) 
+            if (ImGui::BeginCombo("##VisualDefault", VisualSettings[defaultVisual]))
             {
                 for (int n = 0; n < IM_ARRAYSIZE(VisualSettings); n++)
                 {
@@ -878,7 +878,7 @@ void buttonsWindow() {
                     WritePrivateProfileString(devButtons[i], "Method", "Key", ControliniPath);
                     WritePrivateProfileString(devButtons[i], "JoyID", NULL, ControliniPath);
                     WritePrivateProfileString(devButtons[i], "Binding", _itoa(key, buff, sizeof(buff)), ControliniPath);
-                        ImGui::CloseCurrentPopup();
+                    ImGui::CloseCurrentPopup();
                 }
             }
             ImGui::EndPopup();
@@ -919,8 +919,6 @@ void analogsWindow() {
     ImGui::Text("Action");
     ImGui::Separator();
     ImGui::NextColumn();
-
-
 
     for (int i = 0; i < IM_ARRAYSIZE(analogs); i++) {
         int id;
@@ -1080,7 +1078,7 @@ void lightsWindow() {
 
     if (fopen_s(&fp, "debug.log", "r") == 0) {
         while (fgets(line, sizeof(line), fp)) {
-            // Find the line ��Successfully connected�� and extract the COM port information
+            // Find the line Successfully connected and extract the COM port information
             if (strstr(line, "Successfully connected to COM")) {
                 char* portInfo = strstr(line, "COM");
                 if (portInfo) {
@@ -1097,18 +1095,11 @@ void lightsWindow() {
     if (!found) {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Status: Not Connected");
         ImGui::Text("Port: N/A");
-
-        ImGui::Separator();
-        ImGui::Text("Searching available ports COM2-COM10...");
-        static float progress = 0.0f;
-        progress += 0.002f;
-        if (progress > 1.0f) progress = 0.0f;
-        ImGui::ProgressBar(progress, ImVec2(0.0f, 0.0f));
     }
 
     ImGui::Separator();
     ImGui::TextWrapped(
-        "Note: Arduino LED Controller is used for EZ2ON cabinet's neon lights. "
+        "Note: Arduino LED Controller is used for EZ2DJ cabinet's neon lights. "
         "Make sure your Arduino is properly connected and configured."
     );
 
@@ -1128,7 +1119,6 @@ void HelpMarker(const char* desc)
     }
 }
 
-
 int detectGameVersion() {
     TCHAR fullPath[MAX_PATH];
     TCHAR driveLetter[3];
@@ -1147,7 +1137,7 @@ int detectGameVersion() {
     if ((dir = opendir(FinalPath)) != NULL) {
         /* print all the files and directories within directory */
         while ((ent = readdir(dir)) != NULL) {
-            
+
             if (strcmp(ent->d_name, "2EZConfig.exe") == 0 || !hasEnding(toLower(ent->d_name), ".exe")) {
                 printf("Skipping %s\n", ent->d_name);
                 continue;
