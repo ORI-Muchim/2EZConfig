@@ -1,4 +1,4 @@
-# 2EZProject
+# 2EZProject (WIP)
 
 ## [Original Repo](https://github.com/ben-rnd/2EZConfig)
 
