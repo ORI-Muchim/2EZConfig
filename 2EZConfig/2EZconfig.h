@@ -127,5 +127,3 @@ namespace EZConfig {
 
     static const char* VisualSettings[] = { "Default", "Black Panel", "BGA Off" };
 }
-
-
