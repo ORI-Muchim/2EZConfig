@@ -119,7 +119,8 @@ int Injector::Inject(char* exename) {
 }
 
 
-int Injector::InjectWithName(const char* exename ) {
+
+int Injector::InjectWithName(const char* exename) {
     //this sleep stops sixth from crashing when switching to 1st
     Sleep(10);
     char* dll = (char*)"2EZ.dll";
@@ -149,7 +150,7 @@ int Injector::InjectWithName(const char* exename ) {
         printf("[-] OpenProcess failed\n");
         exit(0);
     }
-    else 
+    else
         printf("[+] OpenProcess success\n");
 
     FARPROC llAddr = loadLibraryAddress();
@@ -239,5 +240,5 @@ VOID createRemoteThreadMethod(HANDLE hProcess, FARPROC loadLibraryAddress, LPVOI
     }
     else
         printf("Injection successful process pointer: %x \n", CRT);
-        printf("[+] CreateRemoteThread success\n");
+    printf("[+] CreateRemoteThread success\n");
 }

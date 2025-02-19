@@ -60,17 +60,14 @@ static struct djGame {
 	{"5th Platinum", false, 0x00, 0x00, 0x00 },
 	{"6th Trax ~Self Evolution~", false, 0x00, 0x00, 0x00},
 	{"7th Trax ~Resistance~", false, 0x00, 0x00, 0x00},
-	{"7th Trax Ver 1.5", false, 0x00, 0x00, 0x00},
-	{"7th Trax Ver 2.0", false, 0x00, 0x00, 0x00},
 	{"Codename: Violet", false, 0x00, 0x00, 0x00},
 	{"Bonus Edition", false, 0x00, 0x00, 0x00}, //no dump
 	{"Bonus Edition revision A", false, 0x00, 0x00, 0x00},
-	{"Azure ExpressioN", false, 0x00, 0x00, 0x00}, //no dump
 	{"Azure ExpressioN Integral Composition", false, 0x00, 0x00, 0x00}, //no dump
 	{"Endless Circulation", false, 0xEFD4CC, 0x5978A, 0x53289}, //no good dump 
 	{"Evolve", false, 0x944C9C, 0x3A0DE, 0x38257},
 	{"Night Traveller", true, 0xF0FE14, 0x42A6D, 0x41854},
-	{"Time Traveller (1.83)", true, 0x1309D74, 0x4740A, 0x45F6C},// need updated dump
+	{"Time Traveller", true, 0x1309D74, 0x4740A, 0x45F6C},// need updated dump
 	{"Final", false, 0x130CFB4, 0x4A693, 0x46C75},
 	{"Final:EX", true, 0x130DFFC, 0x4B773, 0x47CBA},
 };

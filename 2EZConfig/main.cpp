@@ -15,7 +15,7 @@
 #pragma comment(lib, "legacy_stdio_definitions")
 #endif
 
-#define version "v1.05"
+#define version "v1.10"
 
 void setTheme();
 
@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
             char exeName[255];
             GetPrivateProfileStringA("Settings", "EXEName", "EZ2AC.exe", exeName, sizeof(exeName), ".\\2EZ.ini");
             int gameVer = GetPrivateProfileIntA("Settings", "GameVer", -1, EZConfig::ConfigIniPath);
-            if (strcmp(EZConfig::djGames[gameVer].name, "6th Trax ~Self Evolution~") == 0){
+            if (strcmp(EZConfig::djGames[gameVer].name, "6th Trax ~Self Evolution~") == 0) {
                 return(EZConfig::sixthBackgroundLoop(exeName));
             }
             else {

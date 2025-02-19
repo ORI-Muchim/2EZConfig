@@ -31,17 +31,14 @@ namespace EZConfig {
         /*6th requires to be changed from ez2dj.exe for hooking loop to work*/
         {"6th Trax ~Self Evolution~","EZ2DJ-Launcher.exe", {'\xce','\x6d','\x77','\xd8','\x30','\x36','\x82','\x63','\x6a','\x70','\x50','\xa4','\x32','\x15','\xa1','\x40'}, true, true, true, false, false, true},
         {"7th Trax ~Resistance~","EZ2DJ.exe", {'\xc2','\x5f','\xd2','\x44','\xff','\x83','\x3f','\x1c','\x28','\x16','\x41','\xda','\x2f','\xf9','\x62','\x67'}, true, true, true, false, false, true},
-        {"7th Trax Ver 1.5", "EZ2DJ.exe", {'\xc6','\xc7','\xcd','\xc5','\x8b','\x73','\x91','\x6e','\xdf','\xb7','\x17','\xda','\xfb','\xd0','\x41','\x97'}, true, true, true, false, false, true},
-        {"7th Trax Ver 2.0", "EZ2DJ.exe", {'\x00,\xa6','\x9e','\x80','\xf8','\xbd','\xdf','\xf4','\x8e','\x36','\xb4','\xb4','\x39','\xb9','\x52','\xeb'}, true, true, true, false, false, true},
         {"Codename: Violet", "EZ2DJ.exe", {'\x80','\x20','\xb2','\xb1','\x1c','\x93','\x1e','\xfc','\x1f','\xa7','\x7e','\x91','\x7d','\xca','\x18','\xb1'}, true, true, true, false, false, true},
         {"Bonus Edition", "EZ2DJBe.exe", "", true, true, true, false, false, true}, //no dump
         {"Bonus Edition revision A", "EZ2DJBe.exe", {'\xeb','\xf1','\xcf','\xd5','\x79','\x8a','\x2d','\xb7','\x63','\xce','\xe4','\x76','\x25','\xa8','\xd1','\xe3'}, true, true, true, false, false, true},
-        {"Azure ExpressioN", "EZ2DJ.exe", "", true, true, true, false, false, true}, //no dump
         {"Azure ExpressioN Integral Composition", "EZ2DJ.exe", "", true, true, true, false, false, true}, //no dump
         {"Endless Circulation", "EZ2AC.exe", "", true, true, true, false, false, true}, //no dump
         {"Evolve", "EZ2AC.exe", {'\x09','\x20','\xe5','\x4a','\x25','\x39','\xe3','\xfd','\x5d','\xe5','\x3a','\xa3','\x7d','\x9b','\x33','\x8a'}, true, true, true, false, false, true},
         {"Night Traveller", "EZ2AC.exe", {'\x6c','\x12','\x50','\x9f','\x89','\xb3','\x50','\x4c','\x1a','\xab','\xc2','\x9b','\xa7','\xb7','\x32','\xe8'}, true, true, true, false, true, true},
-        {"Time Traveller (1.83)", "EZ2AC.exe", {'\x03','\x9a','\x5d','\x23','\x3c','\x15','\x12','\x01','\x11','\x2f','\x00','\xfb','\xb6','\x4c','\x21','\xda'}, true, true, true, false, false, true},
+        {"Time Traveller", "EZ2AC.exe", {'\x03','\x9a','\x5d','\x23','\x3c','\x15','\x12','\x01','\x11','\x2f','\x00','\xfb','\xb6','\x4c','\x21','\xda'}, true, true, true, false, false, true},
         {"Final", "EZ2AC.exe", {'\x33','\x6a','\xb9','\x6c','\xae','\x01','\xe0','\x1e','\x06','\x9f','\xb8','\x05','\x58','\x3d','\x02','\x89'}, true, true, true, true, true, true},
         {"Final:EX", "EZ2AC.exe", {'\xbc','\xe8','\x48','\xf2','\xd7','\x94','\x5c','\x36','\x12','\x0a','\x2a','\xda','\xa5','\x73','\x57','\x48'}, true, true, true, false, true, true},
     };
