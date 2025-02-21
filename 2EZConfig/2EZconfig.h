@@ -89,6 +89,7 @@ namespace EZConfig {
                                         "P2 Turntable +",
                                         "P2 Turntable -",
                                         "P2 Pedal",
+										"Screenshot"
                                         };
 
     static const char* analogs[] = { "P1 Turntable", 

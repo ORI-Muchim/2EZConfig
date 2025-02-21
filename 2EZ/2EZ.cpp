@@ -187,14 +187,95 @@ void TakeScreenshot() {
 	Gdiplus::GdiplusShutdown(gdiplusToken);
 }
 
+DWORD PatchThread() {
+	// Get Game config file
+	HANDLE ez2Proc = GetCurrentProcess();
+	baseAddress = (uintptr_t)GetModuleHandleA(NULL);
+	GameVer = GetPrivateProfileIntA("Settings", "GameVer", 0, config);
+	currGame = djGames[GameVer];
+	SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, ControliniPath);
+	PathAppendA(ControliniPath, (char*)"2EZ.ini");
+
+	int screenshotKey = GetPrivateProfileIntA("Screenshot", "Binding", NULL, ControliniPath);
+
+	// Short sleep to fix crash when using legitimate data with dongle, can be overiden in ini if causing issues.
+	Sleep(GetPrivateProfileIntA("Settings", "ShimDelay", 10, config));
+
+	// Hook IO 
+	if (GetPrivateProfileIntA("Settings", "EnableIOHook", 0, config)) {
+		SetUnhandledExceptionFilter(IOportHandler);
+	}
+
+	// Setup Buttons
+	for (int b = 0; b < NUM_OF_IO; b++) {
+		char buff[20];
+		GetPrivateProfileStringA(ioButtons[b], "method", NULL, buff, 20, ControliniPath);
+		if (buff != NULL) {
+			if (strcmp(buff, "Key") == 0) {
+				buttonBindings[b].bound = true;
+				buttonBindings[b].method = 0;
+			}
+			else {
+				buttonBindings[b].bound = true;
+				buttonBindings[b].method = 1;
+				joysticks[buttonBindings[b].joyID].init = true;
+			}
+			buttonBindings[b].joyID = GetPrivateProfileIntA(ioButtons[b], "JoyID", 16, ControliniPath);
+			buttonBindings[b].binding = GetPrivateProfileIntA(ioButtons[b], "Binding", NULL, ControliniPath);
+		}
+	}
+
+	// Setup Analogs
+	for (int a = 0; a < NUM_OF_ANALOG; a++) {
+		char buff[20];
+		GetPrivateProfileStringA(analogs[a], "Axis", NULL, buff, 20, ControliniPath);
+		if (buff != NULL) {
+			analogBindings[a].bound = true;
+			joysticks[analogBindings[a].joyID].init = true;
+			if (strcmp(buff, "X") == 0) {
+				analogBindings[a].axis = 0;
+			}
+			else {
+				analogBindings[a].axis = 1;
+			}
+			analogBindings[a].joyID = GetPrivateProfileIntA(analogs[a], "JoyID", 16, ControliniPath);
+			analogBindings[a].reverse = GetPrivateProfileIntA(analogs[a], "Reverse", 0, ControliniPath);
+		}
+	}
+
+	// Take Screenshots
+	if (screenshotKey && (GetAsyncKeyState(screenshotKey) & 0x8000)) {
+		TakeScreenshot();
+	}
+
+	// Some of the games (ie final) take a while to initialise and will crash or clear out the bindings unless delayed
+	// Doesnt cause any issues so i just set this globally on all games, can be overidden in .ini if needed.
+	// since we're already hooking IO theres no problem doing this.
+	Sleep(GetPrivateProfileIntA("Settings", "BindDelay", 2000, config));
+
+	vTT[0].plus = GetPrivateProfileIntA("P1 Turntable +", "Binding", NULL, ControliniPath);
+	vTT[0].minus = GetPrivateProfileIntA("P1 Turntable -", "Binding", NULL, ControliniPath);
+	vTT[1].plus = GetPrivateProfileIntA("P2 Turntable +", "Binding", NULL, ControliniPath);
+	vTT[1].minus = GetPrivateProfileIntA("P2 Turntable -", "Binding", NULL, ControliniPath);
+
+	HANDLE turntableThread = CreateThread(NULL, 0, virtualTTThread, NULL, 0, NULL);
+
+	return NULL;
+}
+
+// DllMain initialization
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
 {
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
+		// Initiate ControliniPath
 		SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, ControliniPath);
 		PathAppendA(ControliniPath, (char*)"2EZ.ini");
+
+		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)PatchThread, 0, 0, 0);
 		break;
+
 	case DLL_PROCESS_DETACH:
 		break;
 	}
