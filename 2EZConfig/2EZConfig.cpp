@@ -21,7 +21,6 @@ void showMainMenu();
 void showSettingsMenu();
 void showButtonsMenu();
 void showAnalogsMenu();
-void showLightsMenu();
 int detectGameVersion();
 void clearScreen();
 void printHeader();
@@ -86,10 +85,9 @@ void showMainMenu() {
     std::cout << "1. Settings\n";
     std::cout << "2. Buttons Configuration\n";
     std::cout << "3. Analogs Configuration\n";
-    std::cout << "4. Lights Configuration\n";
-    std::cout << "5. Launch Game\n";
-    std::cout << "6. Exit\n\n";
-    std::cout << "Select an option (1-6): ";
+    std::cout << "4. Launch Game\n";
+    std::cout << "5. Exit\n\n";
+    std::cout << "Select an option (1-5): ";
 
     char choice = _getch();
     switch (choice) {
@@ -103,9 +101,6 @@ void showMainMenu() {
         showAnalogsMenu();
         break;
     case '4':
-        showLightsMenu();
-        break;
-    case '5':
         if (fileExists(exeName)) {
             int GameVer = GetPrivateProfileIntA("Settings", "GameVer", -1, ConfigIniPath);
             if (strcmp(djGames[GameVer].name, "6th Trax ~Self Evolution~") == 0) {
@@ -120,7 +115,7 @@ void showMainMenu() {
             waitForKeyPress();
         }
         break;
-    case '6':
+    case '5':
         exit(0);
     }
 }
@@ -155,18 +150,6 @@ void showSettingsMenu() {
     std::cout << "1. Change Game Version\n";
     std::cout << "2. Toggle EXE Override [" << (overrideExe ? "ON" : "OFF") << "]\n";
     std::cout << "3. Toggle IO Hook [" << (IOHook ? "ON" : "OFF") << "]\n";
-    if (djGames[GameVer].hasDevBindings) {
-        std::cout << "4. Toggle Dev Controls [" << (DevControl ? "ON" : "OFF") << "]\n";
-    }
-    if (djGames[GameVer].hasModeFreeze) {
-        std::cout << "5. Toggle Mode Select Timer Freeze [" << (modeFreeze ? "ON" : "OFF") << "]\n";
-    }
-    if (djGames[GameVer].hasSongFreeze) {
-        std::cout << "6. Toggle Song Select Timer Freeze [" << (songFreeze ? "ON" : "OFF") << "]\n";
-    }
-    if (strcmp(djGames[GameVer].name, "Evolve") == 0) {
-        std::cout << "7. Toggle Win10 Fix [" << (evWin10Fix ? "ON" : "OFF") << "]\n";
-    }
     std::cout << "0. Back to Main Menu\n\n";
 
     std::cout << "Select an option: ";
@@ -222,24 +205,6 @@ void showSettingsMenu() {
         if (djGames[GameVer].hasDevBindings) {
             DevControl = !DevControl;
             WritePrivateProfileString("Settings", "EnableDevControls", _itoa(DevControl, buff, 10), ConfigIniPath);
-        }
-        break;
-    case '5':
-        if (djGames[GameVer].hasModeFreeze) {
-            modeFreeze = !modeFreeze;
-            WritePrivateProfileString("Settings", "ModeSelectTimerFreeze", _itoa(modeFreeze, buff, 10), ConfigIniPath);
-        }
-        break;
-    case '6':
-        if (djGames[GameVer].hasSongFreeze) {
-            songFreeze = !songFreeze;
-            WritePrivateProfileString("Settings", "SongSelectTimerFreeze", _itoa(songFreeze, buff, 10), ConfigIniPath);
-        }
-        break;
-    case '7':
-        if (strcmp(djGames[GameVer].name, "Evolve") == 0) {
-            evWin10Fix = !evWin10Fix;
-            WritePrivateProfileString("Settings", "EvWin10Fix", _itoa(evWin10Fix, buff, 10), ConfigIniPath);
         }
         break;
     case '0':
@@ -454,45 +419,6 @@ void showAnalogsMenu() {
 
     input::DestroyJoysticks();
     showAnalogsMenu(); // Refresh menu
-}
-
-void showLightsMenu() {
-    clearScreen();
-    printHeader();
-
-    std::cout << "Arduino Communication Status\n";
-    std::cout << "--------------------------\n\n";
-
-    // Read the debug log file to output COM port information
-    FILE* fp;
-    char line[256];
-    bool found = false;
-
-    if (fopen_s(&fp, "debug.log", "r") == 0) {
-        while (fgets(line, sizeof(line), fp)) {
-            if (strstr(line, "Successfully connected to COM")) {
-                char* portInfo = strstr(line, "COM");
-                if (portInfo) {
-                    found = true;
-                    std::cout << "Status: Connected\n";
-                    std::cout << "Port: " << std::string(portInfo, 5) << "\n";
-                }
-                break;
-            }
-        }
-        fclose(fp);
-    }
-
-    if (!found) {
-        std::cout << "Status: Not Connected\n";
-        std::cout << "Port: N/A\n\n";
-    }
-
-    std::cout << "\nNote: Arduino LED Controller is used for EZ2DJ cabinet's neon lights.\n";
-    std::cout << "Make sure your Arduino is properly connected and configured.\n\n";
-
-    std::cout << "Press any key to return to main menu...";
-    _getch();
 }
 
 int detectGameVersion() {

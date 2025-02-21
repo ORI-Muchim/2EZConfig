@@ -150,27 +150,57 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\2EZExternals\imgui\backends\imgui_impl_glfw.cpp" />
-    <ClCompile Include="..\2EZExternals\imgui\backends\imgui_impl_opengl2.cpp" />
-    <ClCompile Include="..\2EZExternals\imgui\imgui.cpp" />
-    <ClCompile Include="..\2EZExternals\imgui\imgui_demo.cpp" />
-    <ClCompile Include="..\2EZExternals\imgui\imgui_draw.cpp" />
-    <ClCompile Include="..\2EZExternals\imgui\imgui_tables.cpp" />
-    <ClCompile Include="..\2EZExternals\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\2EZExternals\imgui\backends\imgui_impl_glfw.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\2EZExternals\imgui\backends\imgui_impl_opengl2.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\2EZExternals\imgui\imgui.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\2EZExternals\imgui\imgui_demo.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\2EZExternals\imgui\imgui_draw.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\2EZExternals\imgui\imgui_tables.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\2EZExternals\imgui\imgui_widgets.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="2EZConfig.cpp" />
     <ClCompile Include="Injector\Injector.cpp" />
     <ClCompile Include="inputManager\input.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\2EZExternals\imgui\backends\imgui_impl_glfw.h" />
-    <ClInclude Include="..\2EZExternals\imgui\backends\imgui_impl_opengl2.h" />
-    <ClInclude Include="..\2EZExternals\imgui\imconfig.h" />
-    <ClInclude Include="..\2EZExternals\imgui\imgui.h" />
-    <ClInclude Include="..\2EZExternals\imgui\imgui_internal.h" />
-    <ClInclude Include="..\2EZExternals\imgui\imstb_rectpack.h" />
-    <ClInclude Include="..\2EZExternals\imgui\imstb_textedit.h" />
-    <ClInclude Include="..\2EZExternals\imgui\imstb_truetype.h" />
+    <ClInclude Include="..\2EZExternals\imgui\backends\imgui_impl_glfw.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="..\2EZExternals\imgui\backends\imgui_impl_opengl2.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="..\2EZExternals\imgui\imconfig.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="..\2EZExternals\imgui\imgui.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="..\2EZExternals\imgui\imgui_internal.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="..\2EZExternals\imgui\imstb_rectpack.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="..\2EZExternals\imgui\imstb_textedit.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="..\2EZExternals\imgui\imstb_truetype.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="2EZconfig.h" />
     <ClInclude Include="helpers.h" />
     <ClInclude Include="Injector\Injector.h" />
