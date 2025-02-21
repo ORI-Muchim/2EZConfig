@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 namespace EZConfig {
-    int RenderUI(GLFWwindow* window);
+	int RenderUI();
     int sixthBackgroundLoop(char * launcherName);
 
     const LPCSTR ConfigIniPath = ".\\2EZ.ini";

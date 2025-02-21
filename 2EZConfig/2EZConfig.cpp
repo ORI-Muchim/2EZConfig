@@ -1,3 +1,5 @@
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+
 #include "2EZconfig.h"
 #include <Windows.h>
 #include <iostream>
