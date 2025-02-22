@@ -118,7 +118,7 @@
       <AdditionalLibraryDirectories>$(SolutionDir)\2EZExternals\openssl\lib\VC\static;$(SolutionDir)\2EZExternals\glfw\lib-vc2010-32</AdditionalLibraryDirectories>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;Shlwapi.lib;ws2_32.lib;libssl32MT.lib;Crypt32.lib;libcrypto32MT.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
-      <AdditionalOptions>/ENTRY:mainCRTStartup %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/ENTRY:mainCRTStartup /arch:IA32 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -171,10 +171,14 @@
     <ClCompile Include="..\2EZExternals\imgui\imgui_widgets.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="2EZConfig.cpp" />
+    <ClCompile Include="2EZConfig.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">/arch:IA32 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="Injector\Injector.cpp" />
     <ClCompile Include="inputManager\input.cpp" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="main.cpp">
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">/arch:IA32 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\2EZExternals\imgui\backends\imgui_impl_glfw.h">

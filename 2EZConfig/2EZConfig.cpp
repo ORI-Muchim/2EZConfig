@@ -76,48 +76,60 @@ void waitForKeyPress() {
 }
 
 void showMainMenu() {
-    clearScreen();
-    printHeader();
+	clearScreen();
+	printHeader();
 
-    char exeName[255];
-    GetPrivateProfileStringA("Settings", "EXEName", "EZ2AC.exe", exeName, sizeof(exeName), ConfigIniPath);
+	char exeName[255];
+	GetPrivateProfileStringA("Settings", "EXEName", "EZ2AC.exe", exeName, sizeof(exeName), ConfigIniPath);
 
-    std::cout << "1. Settings\n";
-    std::cout << "2. Buttons Configuration\n";
-    std::cout << "3. Analogs Configuration\n";
-    std::cout << "4. Launch Game\n";
-    std::cout << "5. Exit\n\n";
-    std::cout << "Select an option (1-5): ";
+	std::cout << "1. Settings\n";
+	std::cout << "2. Buttons Configuration\n";
+	std::cout << "3. Analogs Configuration\n";
+	std::cout << "4. Launch Game\n";
+	std::cout << "5. Exit\n\n";
+	std::cout << "Select an option (1-5): ";
 
-    char choice = _getch();
-    switch (choice) {
-    case '1':
-        showSettingsMenu();
-        break;
-    case '2':
-        showButtonsMenu();
-        break;
-    case '3':
-        showAnalogsMenu();
-        break;
-    case '4':
-        if (fileExists(exeName)) {
-            int GameVer = GetPrivateProfileIntA("Settings", "GameVer", -1, ConfigIniPath);
-            if (strcmp(djGames[GameVer].name, "6th Trax ~Self Evolution~") == 0) {
-                sixthBackgroundLoop(exeName);
-            }
-            else {
-                Injector::Inject(exeName);
-            }
-        }
-        else {
-            std::cout << "\nError: " << exeName << " not found!\n";
-            waitForKeyPress();
-        }
-        break;
-    case '5':
-        exit(0);
-    }
+	char choice = _getch();
+	switch (choice) {
+	case '1':
+		showSettingsMenu();
+		break;
+	case '2':
+		showButtonsMenu();
+		break;
+	case '3':
+		showAnalogsMenu();
+		break;
+	case '4':
+		if (fileExists(exeName)) {
+			int GameVer = GetPrivateProfileIntA("Settings", "GameVer", -1, ConfigIniPath);
+			clearScreen();  // 화면을 깨끗이 지웁니다
+			std::cout << "Launching game...\n\n";
+
+			if (strcmp(djGames[GameVer].name, "6th Trax ~Self Evolution~") == 0) {
+				printf("Starting 6th background loop...\n");
+				sixthBackgroundLoop(exeName);
+			}
+			else {
+				bool result = Injector::Inject(exeName);
+				if (result) {
+					printf("\nGame launched and DLL injected successfully.\n");
+				}
+				else {
+					printf("\nFailed to launch game or inject DLL.\n");
+				}
+				printf("\nPress any key to return to menu...");
+				_getch();  // 키 입력을 기다립니다
+			}
+		}
+		else {
+			std::cout << "\nError: " << exeName << " not found!\n";
+			waitForKeyPress();
+		}
+		break;
+	case '5':
+		exit(0);
+	}
 }
 
 void showSettingsMenu() {
