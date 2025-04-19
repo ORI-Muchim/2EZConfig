@@ -153,21 +153,14 @@ ArduinoController arduinoController;
 
 UINT8 getButtonInput(int ionRangeStart) {
     UINT8 output = 255;
-    int count = 0;
-    for (int i = ionRangeStart; i < ionRangeStart + 8; i++) {
+    for (int i = ionRangeStart, count = 0; i < ionRangeStart + 8; i++, count++) {
         if (buttonBindings[i].bound) {
-            if (buttonBindings[i].method) {
-                if (input::isJoyButtonPressed(buttonBindings[i].joyID, buttonBindings[i].binding)) {
-                    output = output & byteArray[count];
-                }
-            }
-            else {
-                if (input::isKbButtonPressed(buttonBindings[i].binding)) {
-                    output = output & byteArray[count];
-                }
-            }
+            bool isPressed = buttonBindings[i].method ?
+                input::isJoyButtonPressed(buttonBindings[i].joyID, buttonBindings[i].binding) :
+                input::isKbButtonPressed(buttonBindings[i].binding);
+
+            if (isPressed) output &= byteArray[count];
         }
-        count++;
     }
     return output;
 }
@@ -347,7 +340,6 @@ DWORD WINAPI virtualTTThread(void* data) {
         if (GetAsyncKeyState(vTT[1].minus) & 0x8000) {
             vTT[1].pos -= 1;
         }
-        Sleep(5);
     }
 
     return 0;
@@ -601,7 +593,7 @@ DWORD PatchThread() {
     // Some of the games (ie final) take a while to initialise and will crash or clear out the bindings unless delayed
     // Doesnt cause any issues so i just set this globally on all games, can be overidden in .ini if needed.
     // since we're already hooking IO theres no problem doing this.
-    Sleep(GetPrivateProfileIntA("Settings", "BindDelay", 2000, config));
+    Sleep(GetPrivateProfileIntA("Settings", "BindDelay", 1000, config));
 
     // Set version text in test menu
     char pattern[] = "Version %d.%02d";
@@ -657,7 +649,10 @@ DWORD PatchThread() {
     vTT[1].minus = GetPrivateProfileIntA("P2 Turntable -", "Binding", NULL, ControliniPath);
 
     HANDLE turntableThread = CreateThread(NULL, 0, virtualTTThread, NULL, 0, NULL);
+    SetThreadPriority(turntableThread, THREAD_PRIORITY_HIGHEST); // 스레드 우선순위 최대로 설정
+
     HANDLE inputThread = CreateThread(NULL, 0, alternateInputThread, NULL, 0, NULL);
+    SetThreadPriority(inputThread, THREAD_PRIORITY_HIGHEST);
 
     return NULL;
 }
