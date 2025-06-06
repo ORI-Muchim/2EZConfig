@@ -53,9 +53,29 @@ private:
     COMMTIMEOUTS timeouts;
     bool isInitialized;
     char lastCommand;
+    
+    // Windows XP 호환 동기화 객체들
+    HANDLE hWorkerThread;
+    HANDLE hStopEvent;
+    HANDLE hCommandEvent;  // 명령 대기용 이벤트
+    CRITICAL_SECTION commandQueueCS;
+    
+    // std::queue 대신 간단한 배열 기반 큐
+    static const int MAX_QUEUE_SIZE = 10;
+    char commandQueue[MAX_QUEUE_SIZE];
+    int queueHead;
+    int queueTail;
+    int queueSize;
+    
+    // std::atomic 대신 volatile 변수와 InterlockedXXX 함수 사용
+    volatile LONG isHealthy;
+    volatile DWORD lastSuccessTime;
+    
+    static const DWORD HEALTH_CHECK_INTERVAL = 5000;
+    static const DWORD MAX_RESPONSE_TIME = 500;
 
     bool ConfigureSerialPort() {
-        dcbSerialParams = { 0 };
+        ZeroMemory(&dcbSerialParams, sizeof(dcbSerialParams));
         dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
 
         if (!GetCommState(hSerial, &dcbSerialParams)) {
@@ -73,99 +93,108 @@ private:
             return false;
         }
 
-        timeouts = { 0 };
-        timeouts.ReadIntervalTimeout = 50;
-        timeouts.ReadTotalTimeoutConstant = 50;
-        timeouts.ReadTotalTimeoutMultiplier = 10;
-        timeouts.WriteTotalTimeoutConstant = 50;
-        timeouts.WriteTotalTimeoutMultiplier = 10;
+        ZeroMemory(&timeouts, sizeof(timeouts));
+        timeouts.ReadIntervalTimeout = 10;
+        timeouts.ReadTotalTimeoutConstant = 100;
+        timeouts.ReadTotalTimeoutMultiplier = 1;
+        timeouts.WriteTotalTimeoutConstant = 100;
+        timeouts.WriteTotalTimeoutMultiplier = 1;
 
         return SetCommTimeouts(hSerial, &timeouts);
     }
 
-    bool IsArduinoPort(const char* portName) {
-        HANDLE testHandle = CreateFileA(portName,
-            GENERIC_READ | GENERIC_WRITE,
-            0,
-            NULL,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            NULL);
-
-        if (testHandle == INVALID_HANDLE_VALUE) {
-            return false;
-        }
-
-        DCB dcbTestParams = { 0 };
-        dcbTestParams.DCBlength = sizeof(dcbTestParams);
-
-        if (!GetCommState(testHandle, &dcbTestParams)) {
-            CloseHandle(testHandle);
-            return false;
-        }
-
-        dcbTestParams.BaudRate = 9600;
-        dcbTestParams.ByteSize = 8;
-        dcbTestParams.StopBits = ONESTOPBIT;
-        dcbTestParams.Parity = NOPARITY;
-
-        if (!SetCommState(testHandle, &dcbTestParams)) {
-            CloseHandle(testHandle);
-            return false;
-        }
-
-        // Resetting the Arduino by toggling the DTR signal
-        EscapeCommFunction(testHandle, SETDTR);
-        Sleep(250);
-        EscapeCommFunction(testHandle, CLRDTR);
-        Sleep(50);
-
-        PurgeComm(testHandle, PURGE_RXCLEAR | PURGE_TXCLEAR);
-
-        const char testMessage = '1';
-        DWORD bytesWritten = 0;
-        WriteFile(testHandle, &testMessage, 1, &bytesWritten, NULL);
-
-        Sleep(100);
-
-        char buffer[32];
-        DWORD bytesRead = 0;
-        BOOL readResult = ReadFile(testHandle, buffer, sizeof(buffer), &bytesRead, NULL);
-
-        CloseHandle(testHandle);
-
-        FILE* fp;
-        fopen_s(&fp, "arduino_detect.log", "a");
-        fprintf(fp, "Testing %s - Read result: %d, Bytes read: %d\n",
-            portName, readResult, bytesRead);
-        fclose(fp);
-
-        return (readResult && bytesRead > 0);
+    // 큐 관리 함수들
+    void InitQueue() {
+        queueHead = 0;
+        queueTail = 0;
+        queueSize = 0;
+        ZeroMemory(commandQueue, sizeof(commandQueue));
     }
 
-public:
-    ArduinoController() : hSerial(INVALID_HANDLE_VALUE), isInitialized(false), lastCommand(0) {}
+    bool EnqueueCommand(char command) {
+        EnterCriticalSection(&commandQueueCS);
+        
+        if (queueSize >= MAX_QUEUE_SIZE) {
+            // 큐가 가득 차면 가장 오래된 명령 제거
+            queueHead = (queueHead + 1) % MAX_QUEUE_SIZE;
+            queueSize--;
+        }
+        
+        commandQueue[queueTail] = command;
+        queueTail = (queueTail + 1) % MAX_QUEUE_SIZE;
+        queueSize++;
+        
+        LeaveCriticalSection(&commandQueueCS);
+        return true;
+    }
 
-    ~ArduinoController() {
-        if (hSerial != INVALID_HANDLE_VALUE) {
-            SendCommand('0');  // Turn off relay when exiting
-            CloseHandle(hSerial);
+    bool DequeueCommand(char* command) {
+        bool hasCommand = false;
+        
+        EnterCriticalSection(&commandQueueCS);
+        
+        if (queueSize > 0) {
+            *command = commandQueue[queueHead];
+            queueHead = (queueHead + 1) % MAX_QUEUE_SIZE;
+            queueSize--;
+            hasCommand = true;
+        }
+        
+        LeaveCriticalSection(&commandQueueCS);
+        return hasCommand;
+    }
+
+    static DWORD WINAPI WorkerThread(LPVOID param) {
+        ArduinoController* controller = static_cast<ArduinoController*>(param);
+        return controller->WorkerThreadProc();
+    }
+
+    DWORD WorkerThreadProc() {
+        DWORD lastHealthCheck = GetTickCount();
+        HANDLE waitEvents[2] = { hStopEvent, hCommandEvent };
+        
+        while (true) {
+            DWORD waitResult = WaitForMultipleObjects(2, waitEvents, FALSE, 100);
+            
+            if (waitResult == WAIT_OBJECT_0) {
+                // 종료 이벤트
+                break;
+            }
+            
+            DWORD currentTime = GetTickCount();
+            
+            // 명령 큐 처리
+            ProcessCommandQueue();
+            
+            // 정기적인 헬스체크
+            if (currentTime - lastHealthCheck > HEALTH_CHECK_INTERVAL) {
+                PerformHealthCheck();
+                lastHealthCheck = currentTime;
+            }
+            
+            // 응답성 체크
+            if (currentTime - InterlockedExchange(&lastSuccessTime, lastSuccessTime) > MAX_RESPONSE_TIME * 10) {
+                InterlockedExchange(&isHealthy, 0);
+            }
+        }
+        return 0;
+    }
+
+    void ProcessCommandQueue() {
+        char command;
+        
+        while (DequeueCommand(&command) && isInitialized) {
+            if (SendCommandInternal(command)) {
+                InterlockedExchange(&lastSuccessTime, GetTickCount());
+                InterlockedExchange(&isHealthy, 1);
+            } else {
+                InterlockedExchange(&isHealthy, 0);
+                break;
+            }
         }
     }
 
-    // Additional method to close the port safely.
-    void ClosePort() {
-        if (hSerial != INVALID_HANDLE_VALUE) {
-            // Turn off relay just in case
-            SendCommand('0');
-            CloseHandle(hSerial);
-            hSerial = INVALID_HANDLE_VALUE;
-        }
-        isInitialized = false;
-        lastCommand = 0;
-    }
-
-    bool SendCommand(char command) {
+    bool SendCommandInternal(char command) {
         if (!isInitialized || hSerial == INVALID_HANDLE_VALUE) {
             return false;
         }
@@ -174,121 +203,151 @@ public:
             return true;
         }
 
-        // Clear any stale data in the buffers
         PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
 
-        char cmdBuffer[3];  // "0\n" or "1\n"
-        sprintf_s(cmdBuffer, "%c\n", command);
-
-        // OVERLAPPED structures for asynchronous operations
-        OVERLAPPED osWriter = { 0 };
-        osWriter.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-        if (!osWriter.hEvent) {
-            return false;
-        }
+        char cmdBuffer[3];
+        wsprintfA(cmdBuffer, "%c\n", command);  // sprintf_s 대신 wsprintf 사용
 
         DWORD bytesWritten = 0;
-        BOOL result = WriteFile(hSerial, cmdBuffer, strlen(cmdBuffer), &bytesWritten, &osWriter);
+        BOOL result = WriteFile(hSerial, cmdBuffer, lstrlenA(cmdBuffer), &bytesWritten, NULL);
 
-        if (!result && GetLastError() == ERROR_IO_PENDING) {
-            // Waiting for asynchronous tasks to complete with a certain timeout
-            DWORD waitResult = WaitForSingleObject(osWriter.hEvent, 2000);  // Extended to 2000ms
-            if (waitResult == WAIT_OBJECT_0) {
-                GetOverlappedResult(hSerial, &osWriter, &bytesWritten, FALSE);
-                result = (bytesWritten == strlen(cmdBuffer));
-            }
-            else {
-                // Timeout or WAIT_FAILED
-                result = FALSE;
-            }
-        }
-
-        CloseHandle(osWriter.hEvent);
-
-        if (result) {
+        if (result && bytesWritten == (DWORD)lstrlenA(cmdBuffer)) {
             lastCommand = command;
-            FlushFileBuffers(hSerial);  // Ensure data is written
-            // Reset the consecutive error count on success
-            g_consecutiveErrors.store(0);
+            FlushFileBuffers(hSerial);
             return true;
         }
-        else {
-            // If write failed, do not close the handle immediately.
-            // Instead, increment the consecutive error count.
-            int currentErrCount = g_consecutiveErrors.fetch_add(1) + 1;
-            if (currentErrCount >= MAX_CONSECUTIVE_ERRORS) {
-                // If we exceed threshold, set the reconnect request flag.
-                g_reconnectRequested.store(true);
+        
+        return false;
+    }
+
+    void PerformHealthCheck() {
+        if (!isInitialized) return;
+        
+        char ping = 'P';
+        DWORD bytesWritten = 0;
+        BOOL result = WriteFile(hSerial, &ping, 1, &bytesWritten, NULL);
+        
+        if (!result || bytesWritten != 1) {
+            InterlockedExchange(&isHealthy, 0);
+            ClosePort();
+            Initialize();
+        }
+    }
+
+public:
+    ArduinoController() : 
+        hSerial(INVALID_HANDLE_VALUE), 
+        isInitialized(false), 
+        lastCommand(0),
+        hWorkerThread(NULL),
+        hStopEvent(NULL),
+        hCommandEvent(NULL),
+        queueHead(0),
+        queueTail(0),
+        queueSize(0),
+        isHealthy(1),
+        lastSuccessTime(0) {
+        
+        InitializeCriticalSection(&commandQueueCS);
+        InitQueue();
+        
+        hStopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+        hCommandEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+        
+        InterlockedExchange(&lastSuccessTime, GetTickCount());
+    }
+
+    ~ArduinoController() {
+        ClosePort();
+        
+        if (hStopEvent) {
+            SetEvent(hStopEvent);
+            if (hWorkerThread) {
+                WaitForSingleObject(hWorkerThread, 2000);
+                CloseHandle(hWorkerThread);
             }
+            CloseHandle(hStopEvent);
+        }
+        
+        if (hCommandEvent) {
+            CloseHandle(hCommandEvent);
+        }
+        
+        DeleteCriticalSection(&commandQueueCS);
+    }
+
+    void ClosePort() {
+        if (hSerial != INVALID_HANDLE_VALUE) {
+            QueueCommand('0');
+            Sleep(100);
+            
+            CloseHandle(hSerial);
+            hSerial = INVALID_HANDLE_VALUE;
+        }
+        isInitialized = false;
+        lastCommand = 0;
+    }
+
+    bool SendCommand(char command) {
+        if (!isInitialized) {
             return false;
         }
+        
+        QueueCommand(command);
+        return InterlockedExchange(&isHealthy, isHealthy) != 0;
+    }
+
+    void QueueCommand(char command) {
+        EnqueueCommand(command);
+        SetEvent(hCommandEvent);  // 워커 스레드에 명령 도착 알림
     }
 
     bool Initialize() {
         char portName[12];
-        FILE* fp;
-        fopen_s(&fp, "debug.log", "w");
-        fprintf(fp, "Starting Arduino detection...\n");
-
-        // Check COM2-COM10
+        
         for (int i = 2; i <= 10; i++) {
-            sprintf_s(portName, "COM%d", i);
-            fprintf(fp, "Trying %s...\n", portName);
-
-            // First, open in synchronous mode for testing
-            HANDLE testHandle = CreateFileA(portName,
+            wsprintfA(portName, "COM%d", i);
+            
+            hSerial = CreateFileA(portName,
                 GENERIC_READ | GENERIC_WRITE,
                 0,
                 NULL,
                 OPEN_EXISTING,
-                FILE_ATTRIBUTE_NORMAL,  // Synchronous mode
+                FILE_ATTRIBUTE_NORMAL,
                 NULL);
 
-            if (testHandle != INVALID_HANDLE_VALUE) {
-                // Basic configuration
-                DCB dcbParams = { 0 };
-                dcbParams.DCBlength = sizeof(dcbParams);
-                GetCommState(testHandle, &dcbParams);
-                dcbParams.BaudRate = 9600;
-                dcbParams.ByteSize = 8;
-                dcbParams.StopBits = ONESTOPBIT;
-                dcbParams.Parity = NOPARITY;
-
-                if (SetCommState(testHandle, &dcbParams)) {
-                    fprintf(fp, "Found on %s\n", portName);
-                    CloseHandle(testHandle);
-
-                    // Reopen in asynchronous mode for actual use
-                    hSerial = CreateFileA(portName,
-                        GENERIC_READ | GENERIC_WRITE,
-                        0,
-                        NULL,
-                        OPEN_EXISTING,
-                        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
-                        NULL);
-
-                    if (hSerial != INVALID_HANDLE_VALUE && ConfigureSerialPort()) {
-                        fprintf(fp, "Successfully connected to %s\n", portName);
-                        PurgeComm(hSerial, PURGE_TXCLEAR | PURGE_RXCLEAR);
-                        Sleep(1000);
-                        isInitialized = true;
-                        SendCommand('0');  // Set initial state
-                        fclose(fp);
-                        return true;
-                    }
+            if (hSerial != INVALID_HANDLE_VALUE && ConfigureSerialPort()) {
+                PurgeComm(hSerial, PURGE_TXCLEAR | PURGE_RXCLEAR);
+                Sleep(1000);
+                
+                isInitialized = true;
+                InterlockedExchange(&lastSuccessTime, GetTickCount());
+                InterlockedExchange(&isHealthy, 1);
+                
+                if (hWorkerThread) {
+                    CloseHandle(hWorkerThread);
                 }
-                CloseHandle(testHandle);
+                hWorkerThread = CreateThread(NULL, 0, WorkerThread, this, 0, NULL);
+                
+                QueueCommand('0');
+                return true;
             }
-            fprintf(fp, "Not found on %s\n", portName);
+            
+            if (hSerial != INVALID_HANDLE_VALUE) {
+                CloseHandle(hSerial);
+                hSerial = INVALID_HANDLE_VALUE;
+            }
         }
-
-        fprintf(fp, "Arduino not found\n");
-        fclose(fp);
+        
         return false;
     }
 
     bool IsInitialized() const {
         return isInitialized;
+    }
+    
+    bool IsHealthy() const {
+        return InterlockedExchange(const_cast<volatile LONG*>(&isHealthy), isHealthy) != 0;
     }
 };
 
@@ -329,12 +388,12 @@ UINT8 getAnalogInput(int player) {
 // Neon status handling function
 void HandleNeonOutput(UINT8 lightPattern) {
     static bool lastNeonState = false;
-    static unsigned long lastStateChangeTime = 0;
+    static DWORD lastStateChangeTime = 0;
     bool currentNeonState = !(lightPattern & 0x10);
-    unsigned long currentTime = GetTickCount();
+    DWORD currentTime = GetTickCount();
 
     if (currentNeonState != lastNeonState) {
-        arduinoController.SendCommand(currentNeonState ? '0' : '1');  // If you want the neon to be reversed, change the position of the '1' and '0'. 
+        arduinoController.SendCommand(currentNeonState ? '1' : '0');  // If you want the neon to be reversed, change the position of the '1' and '0'. 
 
         lastStateChangeTime = currentTime;
         lastNeonState = currentNeonState;
