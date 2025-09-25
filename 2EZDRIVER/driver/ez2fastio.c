@@ -354,6 +354,49 @@ NTSTATUS DispatchIoctl(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
     return status;
 }
 
+// ==================== KEYBOARD HOOKING ====================
+NTSTATUS HookKeyboardInterrupt(void)
+{
+    // TODO: Implement IDT hooking for keyboard interrupt
+    // This requires:
+    // 1. Get IDT base address using SIDT instruction
+    // 2. Find keyboard interrupt entry (IRQ1 = INT 0x21)
+    // 3. Save original handler
+    // 4. Replace with our handler
+
+    DbgPrint("[EZ2FastIO] Keyboard interrupt hooking not yet implemented\n");
+    return STATUS_NOT_IMPLEMENTED;
+}
+
+VOID UnhookKeyboardInterrupt(void)
+{
+    // TODO: Restore original keyboard interrupt handler
+
+    DbgPrint("[EZ2FastIO] Keyboard interrupt unhooking not yet implemented\n");
+}
+
+// ==================== PORT WRITE EMULATION ====================
+VOID EmulatePortWrite(USHORT Port, UCHAR Value)
+{
+    PDEVICE_EXTENSION deviceExtension;
+    KIRQL oldIrql;
+
+    if (!g_DeviceObject) return;
+
+    deviceExtension = (PDEVICE_EXTENSION)g_DeviceObject->DeviceExtension;
+
+    // Calculate port index
+    if (Port >= EZ2AC_PORT_BASE && Port <= EZ2AC_PORT_3) {
+        ULONG portIndex = Port - EZ2AC_PORT_BASE;
+
+        KeAcquireSpinLock(&deviceExtension->DataLock, &oldIrql);
+        deviceExtension->PortStates[portIndex] = Value;
+        KeReleaseSpinLock(&deviceExtension->DataLock, oldIrql);
+
+        DbgPrint("[EZ2FastIO] Port 0x%03X write: 0x%02X\n", Port, Value);
+    }
+}
+
 // ==================== DRIVER UNLOAD ====================
 VOID UnloadDriver(IN PDRIVER_OBJECT DriverObject)
 {

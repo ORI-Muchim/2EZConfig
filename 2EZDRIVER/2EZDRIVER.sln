@@ -1,0 +1,27 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "EZ2Controller", "app\EZ2Controller.vcxproj", "{B7E2A8F5-3D4C-4E1B-9A2C-5F8E9D3C1A2B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "port_test", "tools\port_test.vcxproj", "{A5C8B2F1-4E3D-4A2C-8B9E-3D5F1A2C9E8B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B7E2A8F5-3D4C-4E1B-9A2C-5F8E9D3C1A2B}.Debug|x86.ActiveCfg = Debug|Win32
+		{B7E2A8F5-3D4C-4E1B-9A2C-5F8E9D3C1A2B}.Debug|x86.Build.0 = Debug|Win32
+		{B7E2A8F5-3D4C-4E1B-9A2C-5F8E9D3C1A2B}.Release|x86.ActiveCfg = Release|Win32
+		{B7E2A8F5-3D4C-4E1B-9A2C-5F8E9D3C1A2B}.Release|x86.Build.0 = Release|Win32
+		{A5C8B2F1-4E3D-4A2C-8B9E-3D5F1A2C9E8B}.Debug|x86.ActiveCfg = Debug|Win32
+		{A5C8B2F1-4E3D-4A2C-8B9E-3D5F1A2C9E8B}.Debug|x86.Build.0 = Debug|Win32
+		{A5C8B2F1-4E3D-4A2C-8B9E-3D5F1A2C9E8B}.Release|x86.ActiveCfg = Release|Win32
+		{A5C8B2F1-4E3D-4A2C-8B9E-3D5F1A2C9E8B}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
